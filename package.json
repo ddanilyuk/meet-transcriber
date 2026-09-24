@@ -1,0 +1,15 @@
+{
+  "name": "meet-transcriber",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Chrome extension that saves Google Meet captions (Ukrainian) with speakers",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "dev": "node dev/server.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
