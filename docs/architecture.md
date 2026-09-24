@@ -26,7 +26,7 @@ meet.google.com
     └── content/page.css              CSS, що впливає на Meet (manifest "css")
 
 service worker (module)
-├── background/sw.js                  підключення chrome.* API: storage, alarms, downloads, tabs
+├── background/sw.js                  підключення chrome.* API: storage, alarms, downloads, tabs, scripting (перевставка)
 ├── background/router.js              протокол повідомлень (чистий, deps інжектуються)
 ├── background/store.js               схема сховища + черга записів (чистий)
 └── background/dev-reload.js          автоперезавантаження розпакованого розширення
@@ -83,13 +83,16 @@ idle ──(зʼявилась кнопка call_end)──► session:start ─
 
 ### Коли SW дізнається, що мітинг скінчився
 
-Дозволу `tabs` немає, тому SW не бачить URL вкладок. Натомість:
+Дозволу `tabs` немає, тому SW не стежить за навігаціями вкладок. Натомість:
 
 | Подія | Що відбувається |
 | --- | --- |
-| Кнопка «Leave call» | Контент-скрипт помічає, що `call_end` зник, робить `saveNow()` і надсилає `session:end`. |
+| Кнопка «Leave call» | Контент-скрипт помічає, що `call_end` зник (3 опитування), робить `saveNow()` і надсилає `session:end`. |
 | Вкладку закрито | `chrome.tabs.onRemoved` → `router.tabGone(tabId)` (відповідність `tabId → meetingId` у `storage.session`). |
-| Перезавантаження або перехід зі сторінки | `pagehide` → `tab:bye` → `alarms` через 1.5 хв. Нова сторінка Meet у тій самій вкладці надсилає `tab:hello` і скасовує alarm. |
+| Перезавантаження або перехід зі сторінки | `pagehide` → `tab:bye` → `alarms` через 1.5 хв. Скасовує alarm лише повторний вхід у той самий дзвінок (`session:start`). |
+| У вкладці відкрилася інша сторінка Meet | `tab:hello` з іншим кодом мітингу або без нього (головна після «Leave» → «Return to home screen») одразу завершує мітинг цієї вкладки. `tab:hello` з тим самим кодом (перезавантаження, екран «Join now») лишає alarm. |
+| Розширення перезавантажили чи оновили посеред дзвінка | Старий контент-скрипт «осиротів»: `chrome.runtime` недоступний, зберегти нічого не можна. Він гасить статус «запис» (`onContextLost`). SW на `onInstalled` вставляє свіжі копії скриптів у відкриті вкладки Meet (`scripting`). Нова копія шле DOM-подію `meet-transcriber:takeover`, стара знищує свій UI й таймери (`destroy()`), а нова продовжує той самий запис (`session:start` → резюм). |
+| Звʼязок вкладки з мітингом загублено | `storage.session` очищається під час перезавантаження розширення й перезапуску браузера. `router.sweep()` (alarm раз на хвилину та `onStartup`) завершує відкриті мітинги, привʼязані до вкладки, якої вже немає, або не привʼязані й без оновлень довше за `STALE_MS`. `endedAt` = час останнього оновлення. |
 
 Під час завершення (`router.endMeeting`) мітинг без реплік видаляється. В інших випадках, якщо ввімкнено `autoDownload`, `.md` зберігається через `chrome.downloads` (data: URL, `conflictAction: 'uniquify'`).
 
@@ -97,7 +100,7 @@ idle ──(зʼявилась кнопка call_end)──► session:start ─
 
 | Тип | Від кого | Дані | Відповідь |
 | --- | --- | --- | --- |
-| `tab:hello` | контент-скрипт під час старту | `code` | налаштування; скасовує alarm завершення |
+| `tab:hello` | контент-скрипт під час старту | `code` | налаштування; якщо код не збігається з мітингом вкладки, завершує його |
 | `tab:bye` | `pagehide` | — | планує завершення, якщо вкладка мала мітинг |
 | `session:start` | вхід у дзвінок | `code`, `title`, `url` | `{meeting, resumed, settings}` |
 | `session:update` | дебаунс / `pagehide` / вихід | `id`, `patch: {entries, speakers, language, title?}` | `true` / `false` |

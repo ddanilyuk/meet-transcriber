@@ -29,7 +29,8 @@ While `npm run dev` runs:
 - `/dev/archive.html` — the archive page on the same shim storage as the harness.
 - `/design/mockup.html` — every sidebar state rendered with the real templates and CSS.
 - `/__version` — hash of `extension/`; the unpacked extension reloads itself when it changes (`background/dev-reload.js`).
-  After an auto-reload, open Meet tabs keep the orphaned old content script: reload the tab (and click "Join now").
+  After an auto-reload the SW reinjects the content scripts into open Meet tabs and the new copy takes over the call
+  (see Architecture); a tab loaded with code older than that takeover logic still needs a reload + "Join now".
 
 ## Architecture
 
@@ -80,8 +81,17 @@ Key pieces and the non-obvious reasons behind them:
   `<main>`'s insets (even with `!important` and a `resize` event) does not re-layout the tiles.
 - `background/router.js` — message protocol (`tab:hello|bye`, `session:start|update|end`, `settings:get|set`,
   `meeting:get|export|rename|delete`, `archive:open`, `dev:status|ping`). Without the `tabs` permission the SW cannot see
-  navigations, so `tab:bye` on `pagehide` schedules an `alarms`-based end that `tab:hello`/`session:start` cancels.
+  navigations, so `tab:bye` on `pagehide` schedules an `alarms`-based end that only `session:start` (rejoining) cancels;
+  a `tab:hello` with another or no meeting code (e.g. the Meet home screen right after Leave) ends the tab's meeting at
+  once. `router.sweep()` (1-minute alarm + browser startup) ends open meetings linked to a vanished tab or unlinked and
+  quiet for `STALE_MS` — tab links live in `chrome.storage.session`, which an extension reload or browser restart clears.
   Ending a meeting auto-downloads Markdown (data: URL; SW has no `URL.createObjectURL`) and drops meetings with no entries.
+- Extension reload/update orphans running content scripts (no `chrome.runtime`, nothing can be saved). `sw.js`
+  reinjects the manifest's scripts into open Meet tabs on `onInstalled` (install/update; needs `scripting` + the
+  meet.google.com host permission). Copies live in separate isolated worlds and meet only through the DOM: `main.js`
+  dispatches `meet-transcriber:takeover`, the orphan's `session.destroy()`/`sidebar.destroy()` remove its UI and timers,
+  and the new copy resumes the same meeting. `TranscriptBuilder.load()` marks loaded blocks as released so captions still
+  on screen are adopted, not duplicated.
 
 ## Working with Meet's DOM
 
