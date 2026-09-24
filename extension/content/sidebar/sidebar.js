@@ -124,10 +124,16 @@
       return true;
     }
 
+    // The panel and its button exist only during a call: not on the Meet home page, the pre-join screen or
+    // after leaving. `open` is just the remembered preference for the next time a call is running.
+    inCall() {
+      return !!this.session.meeting && MT.dom.isInCall();
+    }
+
     render() {
       this.renderButton();
-      this.panel.hidden = !this.open;
-      if (!this.open) return this.layout();
+      this.panel.hidden = !(this.open && this.inCall());
+      if (this.panel.hidden) return this.layout();
       const vm = this.vm();
       this.setSlot('header', tpl.header(vm));
       this.setSlot('meta', tpl.meta(vm));
@@ -229,9 +235,9 @@
     layout() {
       const html = document.documentElement;
       const stage = MT.dom.stage();
-      const shrink = this.open && !!stage && !!this.session.meeting;
+      const shrink = !this.panel.hidden && !!stage;
       html.classList.toggle('mt-panel-open', shrink);
-      if (!this.open) return;
+      if (this.panel.hidden) return;
 
       const native = MT.dom.nativePanel();
       const right = native ? Math.max(16, innerWidth - native.getBoundingClientRect().left + 16) : 16;
@@ -258,8 +264,7 @@
     // separate pill styled like Meet's right-hand group, positioned just left of that group.
 
     renderButton() {
-      const inCall = !!this.session.meeting && MT.dom.isInCall();
-      if (!inCall) return this.setSlot('fab', '');
+      if (!this.inCall()) return this.setSlot('fab', '');
       const recording = this.session.status === 'recording';
       this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`);
       this.positionButton();
