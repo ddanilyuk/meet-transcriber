@@ -5,20 +5,12 @@
   const MT = (root.MT = root.MT || {});
   const { tpl, util, t } = MT;
 
-  const OPEN_KEY = 'meetTranscriber:panelOpen';
   const AT_BOTTOM_PX = 48;
-
-  function readOpen() {
-    try { return localStorage.getItem(OPEN_KEY) === '1'; } catch { return false; }
-  }
-  function writeOpen(open) {
-    try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch { /* storage blocked */ }
-  }
 
   class Sidebar {
     constructor(session) {
       this.session = session;
-      this.open = readOpen();
+      this.open = false; // opened only by the button, never restored on page load
       this.query = '';
       this.menu = null;
       this.snackbar = null;
@@ -125,12 +117,13 @@
     }
 
     // The panel and its button exist only during a call: not on the Meet home page, the pre-join screen or
-    // after leaving. `open` is just the remembered preference for the next time a call is running.
+    // after leaving.
     inCall() {
       return !!this.session.meeting && MT.dom.isInCall();
     }
 
     render() {
+      if (!this.session.meeting) this.open = false; // every call starts with the panel closed
       this.renderButton();
       this.panel.hidden = !(this.open && this.inCall());
       if (this.panel.hidden) return this.layout();
@@ -305,7 +298,6 @@
 
     setOpen(open) {
       this.open = open;
-      writeOpen(open);
       if (!open) this.setMenu(null, false);
       this.render('open');
       if (open) requestAnimationFrame(() => this.scrollToBottom());
