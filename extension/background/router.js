@@ -1,6 +1,10 @@
 // Message handlers of the service worker, built from injected dependencies so the same code runs in the
 // extension, in dev/harness.html and in node tests.
+import '../shared/util.js';
+import '../shared/format.js';
 import { createStore } from './store.js';
+
+const { format } = globalThis.MT;
 
 // scheduleEnd/cancelEnd: when a meeting page unloads we cannot tell a reload from leaving Meet, so the
 // meeting is ended after a grace period unless a Meet page in the same tab says hello again.
@@ -10,12 +14,29 @@ export function createRouter({
   openArchive = async () => {},
   scheduleEnd = async () => {},
   cancelEnd = async () => {},
+  download = async () => {},
   now = () => Date.now(),
 }) {
   const store = createStore(storage, { now });
 
+  async function exportMeeting(meeting, fmt = 'md') {
+    const { text, mime, filename } = format.render(meeting, fmt);
+    return download({ filename, text, mime });
+  }
+
+  // Ends the meeting once; saves the Markdown transcript when auto-download is on and there is something to save.
   async function endMeeting(id) {
-    return store.end(id);
+    const meeting = await store.end(id);
+    if (!meeting) return null;
+    const settings = await store.getSettings();
+    if (settings.autoDownload && meeting.entries.length) {
+      try {
+        await exportMeeting(meeting, 'md');
+      } catch (err) {
+        console.error('[meet-transcriber] auto-download failed', err);
+      }
+    }
+    return meeting;
   }
 
   const handlers = {
@@ -47,6 +68,11 @@ export function createRouter({
     },
 
     'meeting:get': ({ id }) => store.get(id),
+    'meeting:export': async ({ id, format: fmt }) => {
+      const meeting = await store.get(id);
+      if (!meeting) throw new Error('Meeting not found');
+      return exportMeeting(meeting, fmt || 'md');
+    },
     'meeting:rename': ({ id, title }) => store.rename(id, title).then((m) => !!m),
     'meeting:delete': ({ id }) => store.remove(id),
     'archive:open': ({ id }) => openArchive(id ? `#${encodeURIComponent(id)}` : ''),

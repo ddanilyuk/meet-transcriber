@@ -13,9 +13,17 @@ const tabMap = {
   remove: (tabId) => chrome.storage.session.remove(`tab:${tabId}`),
 };
 
+// Saves text into the Downloads folder. Service workers have no URL.createObjectURL, so use a data: URL.
+async function download({ filename, text, mime }) {
+  const url = `data:${mime};charset=utf-8,${encodeURIComponent(text)}`;
+  const id = await chrome.downloads.download({ url, filename, conflictAction: 'uniquify', saveAs: false });
+  return { id, filename };
+}
+
 const router = createRouter({
   storage: chrome.storage.local,
   tabMap,
+  download,
   openArchive: (hash = '') => chrome.tabs.create({ url: ARCHIVE_URL + hash }),
   scheduleEnd: (tabId) => chrome.alarms.create(END_ALARM + tabId, { delayInMinutes: END_GRACE_MIN }),
   cancelEnd: (tabId) => chrome.alarms.clear(END_ALARM + tabId),
