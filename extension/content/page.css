@@ -1,0 +1,5 @@
+/* Injected by the manifest into meet.google.com. Hides Meet's own captions overlay while keeping it in
+   the layout: Meet measures the container, and display:none would stop captions from rendering. */
+html.mt-hide-captions [data-mt-caption-root] {
+  visibility: hidden !important;
+}

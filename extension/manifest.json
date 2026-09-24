@@ -40,8 +40,10 @@
         "content/selectors.js",
         "content/meet-dom.js",
         "content/caption-tracker.js",
+        "content/captions-control.js",
         "content/main.js"
       ],
+      "css": ["content/page.css"],
       "run_at": "document_idle"
     }
   ],
