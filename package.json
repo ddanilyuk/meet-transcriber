@@ -5,7 +5,7 @@
   "description": "Local Chrome extension that saves Google Meet captions (Ukrainian) with speakers",
   "type": "module",
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test \"test/*.test.js\"",
     "dev": "node dev/server.mjs",
     "icons": "node scripts/make-icons.mjs"
   },
