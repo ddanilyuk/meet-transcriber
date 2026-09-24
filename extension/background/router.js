@@ -25,9 +25,14 @@ export function createRouter({
   }
 
   // Ends the meeting once; saves the Markdown transcript when auto-download is on and there is something to save.
+  // Meetings where nobody said anything are dropped instead of cluttering the archive.
   async function endMeeting(id) {
     const meeting = await store.end(id);
     if (!meeting) return null;
+    if (!meeting.entries.length) {
+      await store.remove(id);
+      return meeting;
+    }
     const settings = await store.getSettings();
     if (settings.autoDownload && meeting.entries.length) {
       try {

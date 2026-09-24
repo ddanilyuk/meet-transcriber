@@ -130,6 +130,7 @@ test('router: tab bookkeeping ends a meeting whose tab disappeared', async () =>
   const router = createRouter({ storage, scheduleEnd: async (tabId) => scheduled.push(tabId) });
   const sender = { tab: { id: 7 } };
   const { meeting } = await router.handle({ type: 'session:start', code: 'abc-defg-hij' }, sender);
+  await router.handle({ type: 'session:update', id: meeting.id, patch: { entries: [entry('e-1', 'Ви', 'Привіт')] } }, sender);
   await router.handle({ type: 'tab:bye' }, sender);
   assert.deepEqual(scheduled, [7]);
   assert.equal(await router.tabGone(7), true);

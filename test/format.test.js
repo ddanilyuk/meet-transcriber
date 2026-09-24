@@ -90,6 +90,8 @@ test('no auto-download for empty meetings or when disabled', async () => {
   await router.handle({ type: 'session:update', id: b.id, patch: { entries: meeting.entries } }, {});
   await router.handle({ type: 'session:end', id: b.id }, {});
   assert.equal(downloads.length, 0);
+  const index = await router.store.list();
+  assert.deepEqual(index.map((m) => m.id), [b.id], 'the empty meeting is removed from the archive');
 });
 
 test('manual export renders the requested format', async () => {
