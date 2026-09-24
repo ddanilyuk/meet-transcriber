@@ -21,7 +21,7 @@
     "service_worker": "background/sw.js",
     "type": "module"
   },
-  "permissions": ["storage", "unlimitedStorage", "downloads"],
+  "permissions": ["storage", "unlimitedStorage", "downloads", "alarms"],
   "host_permissions": ["http://localhost:8765/*"],
   "content_scripts": [
     {
@@ -41,6 +41,7 @@
         "content/meet-dom.js",
         "content/caption-tracker.js",
         "content/captions-control.js",
+        "content/session.js",
         "content/main.js"
       ],
       "css": ["content/page.css"],
