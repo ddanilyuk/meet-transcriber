@@ -24,7 +24,8 @@ There is no build step, bundler, linter or npm dependency. The unpacked extensio
 
 While `npm run dev` runs:
 - `/dev/harness.html` — Meet simulator (DOM copied 1:1 from the live recon) that loads the content scripts
-  listed in `manifest.json` with a `chrome.*` shim; query params `?speed=4`, `?cc=on`, `?autoplay=0`.
+  listed in `manifest.json` with a `chrome.*` shim; query params `?speed=4`, `?cc=on`, `?autoplay=0`,
+  `?prejoin=1` (start on a "Ready to join?" screen without call controls).
 - `/dev/archive.html` — the archive page on the same shim storage as the harness.
 - `/design/mockup.html` — every sidebar state rendered with the real templates and CSS.
 - `/__version` — hash of `extension/`; the unpacked extension reloads itself when it changes (`background/dev-reload.js`).
@@ -65,7 +66,9 @@ Key pieces and the non-obvious reasons behind them:
   `MT.captions.remeasure()` toggles CC off/on (max twice per meeting). Never use `display:none` or turn captions off to
   hide them — the region disappears from the DOM.
 - `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes and the list is reconciled
-  per speaker turn (live captions update ~3×/s). The open/close button is a separate pill positioned next to Meet's
+  per speaker turn (live captions update ~3×/s). Panel and button are shown only while `Sidebar.inCall()` (active
+  session + Meet's Leave button) — never on the Meet home page, the pre-join screen or after leaving; the persisted
+  `meetTranscriber:panelOpen` flag is only the preference for the next call. The open/close button is a separate pill positioned next to Meet's
   right control group, **not inserted into it**: Meet's control bar is responsive, hides its own chat button to make
   room for foreign nodes and later drops them. While the panel is open the Meet stage (`<main>`) is scaled with a CSS
   transform via `data-mt-stage` + CSS variables on `<html>`; Meet's inline styles on `<main>` are rewritten by Meet.
