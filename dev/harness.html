@@ -74,7 +74,7 @@
     const router = createRouter({
       storage: chrome.storage.local,
       download: async ({ filename, text }) => { window.__downloads.push({ filename, text }); return { filename }; },
-      openArchive: async (hash) => { window.open(`../extension/archive/archive.html${hash || ''}`, '_blank'); },
+      openArchive: async (hash) => { window.open(`archive.html${hash || ''}`, '_blank'); },
       now: () => Date.now(),
     });
     window.__harnessBackground = (msg, sender) => router.handle(msg, sender);

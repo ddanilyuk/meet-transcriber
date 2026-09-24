@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Архів транскриптів — Meet Transcriber</title>
+<link rel="icon" href="../icons/icon-32.png">
+<link rel="stylesheet" href="archive.css">
+</head>
+<body>
+<header class="appbar">
+  <div class="brand">
+    <img src="../icons/icon-48.png" alt="" width="32" height="32">
+    <span>Архів транскриптів</span>
+  </div>
+  <label class="search">
+    <span data-icon="search"></span>
+    <input type="search" id="search" placeholder="Пошук у всіх мітингах" autocomplete="off" spellcheck="false">
+  </label>
+  <button class="icon-btn" id="open-settings" aria-label="Налаштування" title="Налаштування"><span data-icon="settings"></span></button>
+</header>
+
+<main class="layout">
+  <nav class="sidebar" aria-label="Мітинги">
+    <div id="meeting-list" class="meeting-list"></div>
+  </nav>
+  <section class="detail" id="detail" aria-live="polite"></section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="snackbar" id="snackbar" role="status" hidden></div>
+
+<script src="../shared/icons.js"></script>
+<script src="../shared/util.js"></script>
+<script src="../shared/strings.js"></script>
+<script src="../shared/format.js"></script>
+<script type="module" src="archive.js"></script>
+</body>
+</html>

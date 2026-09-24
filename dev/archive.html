@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Архів (dev)</title>
+<link rel="stylesheet" href="../extension/archive/archive.css">
+<!-- Dev copy of extension/archive/archive.html: same markup and scripts, plus the chrome.* shim and the
+     real background router, sharing storage with dev/harness.html (same origin). -->
+</head>
+<body>
+<header class="appbar">
+  <div class="brand">
+    <img src="../extension/icons/icon-48.png" alt="" width="32" height="32">
+    <span>Архів транскриптів</span>
+  </div>
+  <label class="search">
+    <span data-icon="search"></span>
+    <input type="search" id="search" placeholder="Пошук у всіх мітингах" autocomplete="off" spellcheck="false">
+  </label>
+  <button class="icon-btn" id="open-settings" aria-label="Налаштування" title="Налаштування"><span data-icon="settings"></span></button>
+</header>
+<main class="layout">
+  <nav class="sidebar" aria-label="Мітинги"><div id="meeting-list" class="meeting-list"></div></nav>
+  <section class="detail" id="detail" aria-live="polite"></section>
+</main>
+<div class="scrim" id="scrim" hidden></div>
+<div class="snackbar" id="snackbar" role="status" hidden></div>
+
+<script src="chrome-shim.js"></script>
+<script src="../extension/shared/icons.js"></script>
+<script src="../extension/shared/util.js"></script>
+<script src="../extension/shared/strings.js"></script>
+<script src="../extension/shared/format.js"></script>
+<script type="module">
+  window.__downloads = [];
+  const { createRouter } = await import('../extension/background/router.js');
+  const router = createRouter({
+    storage: chrome.storage.local,
+    download: async ({ filename, text }) => { window.__downloads.push({ filename, text }); return { filename }; },
+  });
+  window.__harnessBackground = (msg, sender) => router.handle(msg, sender);
+  await import('../extension/archive/archive.js');
+</script>
+</body>
+</html>
