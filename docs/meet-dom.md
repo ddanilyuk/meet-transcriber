@@ -52,11 +52,28 @@ div.fJsklc (position:absolute; caption overlay root, 216px high at the bottom of
   `document.webkitHidden` is true. Captions then update ~1×/s in the hidden tab (timer throttling). Spoofing
   `visibilityState` is **not** needed. The patch must be installed at `document_start` (before Meet captures rAF).
 
-## Hiding the overlay
-- The video tile does not grow when the overlay is moved away (Meet reserves the captions area either way),
-  so offscreen positioning has no benefit.
-- `visibility: hidden !important` on the `.fJsklc` root hides the overlay, keeps layout, and mutations keep flowing.
-- **`innerText` is empty under `visibility:hidden` — always read `textContent`.**
+## Hiding the overlay (revised after E2E)
+- The stage is `<main>` with an inline `inset: 64px 16px <bottom>px`. With captions off `bottom` is 136;
+  with captions on it is 352 — Meet adds the overlay height (216) **measured when captions are switched on**.
+  Moving, hiding (`visibility`, `opacity`) or even collapsing the overlay later does not change it; neither do
+  synthetic `resize` events. Tiles are positioned by Meet's JS (`.dkjMxf` inline left/top/width/height), so
+  overriding the stage's inset does not re-layout them either.
+- What works: the overlay root must already be collapsed (`height: 0; overflow: hidden`) at the moment captions
+  turn on. A stylesheet rule `.fJsklc:has([jsname="dsyhDe"])` matches as soon as Meet inserts the captions
+  window, before it measures → `bottom` stays 136 and the video uses the full height. If space is reserved anyway,
+  toggling captions off/on makes Meet measure the collapsed overlay again.
+- `.fJsklc` is a generic class of several overlay layers (top bar, bottom bar, left/right panel slots);
+  only the one containing `[jsname="dsyhDe"]` is the captions overlay.
+- Mutations keep flowing while the overlay is collapsed. **`innerText` is empty for hidden content — always read
+  `textContent`.**
+
+## Control bar is responsive
+- Inserting an extra 48px button into the right-hand group (`.tMdQNe`) makes Meet hide one of its own buttons
+  (the chat button got width 0) and later rebuild the group, dropping the foreign node. Our button is therefore a
+  separate pill positioned next to the group instead of a child of it.
+- The native side panels live in a right-hand `.fJsklc` slot (`ASIDE.R3Gmyc`, parked at `x = viewport` when
+  closed). Their open state comes from Meet's layout model, so a foreign panel cannot make Meet shrink the stage;
+  the extension scales the stage with a CSS transform while its panel is open.
 
 ## Side panel look (Meet 2026, dark)
 - Native panel (`.R3Gmyc`, "In-call messages"): x = viewport − 16 − 360, top 64, width 360, height to 8px above
