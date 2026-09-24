@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Meet Transcriber",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Зберігає субтитри Google Meet (українською) локально, з іменами мовців.",
   "minimum_chrome_version": "116",
   "icons": {
