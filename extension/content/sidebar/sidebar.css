@@ -1,0 +1,277 @@
+/*
+ * Meet Transcriber sidebar. Lives in a shadow root on meet.google.com, so nothing leaks in or out.
+ * Tokens mirror Meet's 2026 in-call dark theme (see docs/meet-dom.md).
+ */
+:host {
+  all: initial;
+  --mt-surface: #202124;
+  --mt-surface-high: #282a2c;
+  --mt-surface-highest: #333537;
+  --mt-on-surface: #e3e3e3;
+  --mt-on-surface-variant: #c4c7c5;
+  --mt-outline: #444746;
+  --mt-outline-variant: #3c4043;
+  --mt-primary: #a8c7fa;
+  --mt-on-primary: #062e6f;
+  --mt-primary-container: #004a77;
+  --mt-on-primary-container: #c2e7ff;
+  --mt-indicator: #8ab4f8;
+  --mt-live-bg: rgba(168, 199, 250, 0.08);
+  --mt-highlight: rgba(253, 214, 99, 0.32);
+  --mt-error: #f2b8b5;
+  --mt-error-bg: rgba(242, 184, 181, 0.12);
+  --mt-rec: #ee675c;
+  --mt-warning: #fdd663;
+  --mt-warning-bg: rgba(253, 214, 99, 0.12);
+  --mt-inverse-surface: #e3e3e3;
+  --mt-on-inverse-surface: #1f1f1f;
+  --mt-state-hover: rgba(227, 227, 227, 0.08);
+  --mt-state-pressed: rgba(227, 227, 227, 0.12);
+  --mt-font: "Google Sans Text", "Google Sans", Roboto, Arial, sans-serif;
+  --mt-font-display: "Google Sans", Roboto, Arial, sans-serif;
+  --mt-top: 64px;
+  --mt-right: 16px;
+  --mt-bottom: 136px;
+  --mt-width: 360px;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+.mt-icon { display: block; fill: currentColor; flex: none; }
+
+/* ---------- Panel shell ---------- */
+.mt-panel {
+  position: fixed;
+  top: var(--mt-top);
+  right: var(--mt-right);
+  bottom: var(--mt-bottom);
+  width: var(--mt-width);
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  background: var(--mt-surface);
+  color: var(--mt-on-surface);
+  border-radius: 20px;
+  overflow: hidden;
+  font: 400 14px/20px var(--mt-font);
+  -webkit-font-smoothing: antialiased;
+  transform-origin: right center;
+  animation: mt-panel-in 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+.mt-panel.is-static { position: relative; top: auto; right: auto; bottom: auto; animation: none; }
+@keyframes mt-panel-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+
+.mt-header { display: flex; align-items: center; gap: 8px; padding: 12px 8px 0 24px; min-height: 64px; }
+.mt-title { flex: 1; margin: 0; font: 400 18px/24px var(--mt-font-display); color: var(--mt-on-surface); letter-spacing: 0; }
+
+.mt-meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px;
+  padding: 0 24px 12px; font-size: 12px; line-height: 16px; color: var(--mt-on-surface-variant);
+}
+.mt-meta-sep { opacity: 0.6; }
+.mt-meta-title { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Status chip ---------- */
+.mt-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+  border-radius: 12px; font: 500 12px/16px var(--mt-font); white-space: nowrap;
+  background: var(--mt-surface-highest); color: var(--mt-on-surface-variant);
+}
+.mt-chip .mt-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.mt-chip.is-recording { background: var(--mt-error-bg); color: var(--mt-error); }
+.mt-chip.is-recording .mt-dot { background: var(--mt-rec); animation: mt-pulse 1.6s ease-in-out infinite; }
+.mt-chip.is-warning { background: var(--mt-warning-bg); color: var(--mt-warning); }
+@keyframes mt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.mt-lang {
+  display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px 0 6px;
+  border-radius: 10px; border: 1px solid var(--mt-outline); color: var(--mt-on-surface-variant);
+}
+.mt-lang.is-wrong { border-color: var(--mt-warning); color: var(--mt-warning); }
+
+/* ---------- Buttons ---------- */
+.mt-icon-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--mt-on-surface-variant); cursor: pointer; flex: none;
+}
+.mt-icon-btn:hover { background: var(--mt-state-hover); color: var(--mt-on-surface); }
+.mt-icon-btn:active { background: var(--mt-state-pressed); }
+.mt-icon-btn:focus-visible, .mt-btn:focus-visible, .mt-switch:focus-visible, .mt-menu-item:focus-visible {
+  outline: 2px solid var(--mt-primary); outline-offset: 2px;
+}
+.mt-icon-btn.is-active { color: var(--mt-primary); }
+
+.mt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; padding: 0 24px; border: 0; border-radius: 20px; cursor: pointer;
+  font: 500 14px/20px var(--mt-font-display); letter-spacing: 0.1px;
+}
+.mt-btn.is-filled { background: var(--mt-primary); color: var(--mt-on-primary); }
+.mt-btn.is-filled:hover { box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.3); }
+.mt-btn.is-text { height: 36px; padding: 0 12px; background: transparent; color: var(--mt-primary); }
+.mt-btn.is-text:hover { background: rgba(168, 199, 250, 0.08); }
+
+/* Tooltip (Meet-like plain tooltip, shown above the control) */
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  padding: 4px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none;
+  background: var(--mt-inverse-surface); color: var(--mt-on-inverse-surface);
+  font: 500 12px/16px var(--mt-font); opacity: 0; transition: opacity 120ms 400ms;
+  z-index: 5;
+}
+[data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; }
+[data-tooltip-pos="bottom"]::after { bottom: auto; top: calc(100% + 6px); }
+[data-tooltip-pos="left"]::after { left: auto; right: 0; transform: none; }
+
+/* ---------- Search ---------- */
+.mt-search {
+  display: flex; align-items: center; gap: 12px; height: 44px; margin: 0 16px 8px; padding: 0 12px 0 14px;
+  border-radius: 22px; background: var(--mt-surface-high); color: var(--mt-on-surface-variant);
+}
+.mt-search:focus-within { box-shadow: inset 0 0 0 2px var(--mt-primary); }
+.mt-search input {
+  flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent;
+  color: var(--mt-on-surface); font: 400 14px/20px var(--mt-font);
+}
+.mt-search input::placeholder { color: var(--mt-on-surface-variant); }
+.mt-search-count { font-size: 12px; white-space: nowrap; }
+
+/* ---------- Banner ---------- */
+.mt-banner {
+  display: flex; gap: 12px; margin: 0 16px 8px; padding: 12px 12px 8px 16px; border-radius: 12px;
+  background: var(--mt-primary-container); color: var(--mt-on-primary-container); font-size: 13px; line-height: 18px;
+}
+.mt-banner.is-warning { background: #3d3522; color: #f6e2a4; }
+.mt-banner .mt-icon { margin-top: 1px; }
+.mt-banner-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.mt-banner-actions { display: flex; justify-content: flex-end; margin-right: -4px; }
+.mt-banner .mt-btn.is-text { color: inherit; font-weight: 500; }
+
+/* ---------- Transcript list ---------- */
+.mt-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mt-list { flex: 1; overflow-y: auto; padding: 4px 0 16px; scrollbar-width: thin; scrollbar-color: var(--mt-outline) transparent; }
+.mt-list::-webkit-scrollbar { width: 8px; }
+.mt-list::-webkit-scrollbar-thumb { background: var(--mt-outline); border-radius: 4px; }
+
+.mt-turn { display: flex; gap: 12px; padding: 8px 20px 8px 16px; }
+.mt-turn + .mt-turn { margin-top: 4px; }
+.mt-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+  font: 500 14px/1 var(--mt-font-display); color: #fff; text-transform: uppercase; user-select: none;
+}
+.mt-turn-main { flex: 1; min-width: 0; }
+.mt-turn-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.mt-speaker { font: 500 14px/20px var(--mt-font-display); color: var(--mt-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-time { font-size: 12px; line-height: 16px; color: var(--mt-on-surface-variant); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.mt-seg { position: relative; margin: 0 -8px; padding: 2px 8px; border-radius: 8px; color: var(--mt-on-surface); word-wrap: break-word; }
+.mt-seg + .mt-seg { margin-top: 2px; }
+.mt-seg-time {
+  position: absolute; right: calc(100% + 12px); top: 4px; width: 36px; text-align: right;
+  font-size: 11px; line-height: 16px; color: var(--mt-on-surface-variant); opacity: 0; font-variant-numeric: tabular-nums;
+}
+.mt-seg:hover .mt-seg-time { opacity: 1; }
+.mt-seg.is-live { background: var(--mt-live-bg); }
+.mt-seg.is-live::after {
+  content: ""; display: inline-block; width: 2px; height: 16px; margin-left: 2px; vertical-align: -3px;
+  background: var(--mt-primary); animation: mt-caret 1s steps(1) infinite;
+}
+.mt-live-label { color: var(--mt-primary); }
+@keyframes mt-caret { 50% { opacity: 0; } }
+mark.mt-hl { background: var(--mt-highlight); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+.mt-new-pill {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px 0 10px; border: 0; border-radius: 16px;
+  background: var(--mt-primary); color: var(--mt-on-primary); font: 500 13px/1 var(--mt-font-display); cursor: pointer;
+  box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- Empty / state screens ---------- */
+.mt-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 24px 40px 48px; text-align: center; color: var(--mt-on-surface-variant);
+}
+.mt-empty-art {
+  width: 72px; height: 72px; margin-bottom: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--mt-surface-high); color: var(--mt-primary);
+}
+.mt-empty-title { margin: 0; font: 400 16px/24px var(--mt-font-display); color: var(--mt-on-surface); }
+.mt-empty-text { margin: 0 0 12px; font-size: 14px; line-height: 20px; }
+
+/* ---------- Footer ---------- */
+.mt-footer { display: flex; align-items: center; gap: 0; min-height: 64px; padding: 8px 8px 8px 16px; border-top: 1px solid var(--mt-outline-variant); }
+.mt-footer .mt-icon-btn { width: 36px; height: 36px; }
+.mt-footer-toggle { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; color: var(--mt-on-surface-variant); font-size: 13px; line-height: 18px; white-space: nowrap; }
+
+/* M3 switch */
+.mt-switch {
+  position: relative; width: 44px; height: 24px; flex: none; margin: 0; padding: 0; border: 2px solid #8e918f; border-radius: 12px;
+  background: var(--mt-surface-highest); cursor: pointer; transition: background 150ms, border-color 150ms;
+}
+.mt-switch::before {
+  content: ""; position: absolute; top: 50%; left: 4px; width: 12px; height: 12px; border-radius: 50%;
+  background: #8e918f; transform: translateY(-50%); transition: all 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.mt-switch[aria-checked="true"] { background: var(--mt-primary); border-color: var(--mt-primary); }
+.mt-switch[aria-checked="true"]::before { left: 22px; width: 16px; height: 16px; background: var(--mt-on-primary); }
+
+/* ---------- Menus / popovers ---------- */
+.mt-menu {
+  position: absolute; right: 12px; bottom: 60px; min-width: 220px; padding: 8px 0; border-radius: 8px; z-index: 10;
+  background: var(--mt-surface-high); color: var(--mt-on-surface);
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+  animation: mt-menu-in 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes mt-menu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.mt-menu-label { padding: 8px 16px 4px; font: 500 12px/16px var(--mt-font); color: var(--mt-on-surface-variant); }
+.mt-menu-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 16px; border: 0;
+  background: transparent; color: inherit; font: 400 14px/20px var(--mt-font); text-align: left; cursor: pointer;
+}
+.mt-menu-item:hover { background: var(--mt-state-hover); }
+.mt-menu-item .mt-icon { color: var(--mt-on-surface-variant); }
+.mt-menu-item-text { flex: 1; display: flex; flex-direction: column; }
+.mt-menu-item-hint { font-size: 12px; line-height: 16px; color: var(--mt-on-surface-variant); }
+.mt-menu-divider { height: 1px; margin: 8px 0; background: var(--mt-outline-variant); }
+
+/* ---------- Snackbar ---------- */
+.mt-snackbar {
+  position: absolute; left: 16px; right: 16px; bottom: 76px; z-index: 20;
+  display: flex; align-items: center; min-height: 48px; padding: 6px 8px 6px 16px; border-radius: 4px;
+  background: var(--mt-inverse-surface); color: var(--mt-on-inverse-surface); font-size: 14px; line-height: 20px;
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+  animation: mt-menu-in 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.mt-snackbar span { flex: 1; }
+.mt-snackbar .mt-btn.is-text { color: #0b57d0; }
+
+/* ---------- Control bar button (separate shadow root inside Meet's right button group) ---------- */
+.mt-cb-wrap { position: relative; display: flex; flex-direction: column; align-items: center; width: 48px; height: 56px; justify-content: center; margin: 0 2px; }
+.mt-cb-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; padding: 0; border: 0; border-radius: 24px; cursor: pointer;
+  background: transparent; color: var(--mt-on-surface-variant); transition: background 150ms;
+}
+.mt-cb-btn:hover { background: var(--mt-state-hover); }
+.mt-cb-btn:focus-visible { outline: 2px solid var(--mt-primary); outline-offset: -2px; }
+.mt-cb-btn.is-open { color: var(--mt-primary); }
+.mt-cb-badge {
+  position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mt-rec); box-shadow: 0 0 0 2px #1e1f20;
+}
+.mt-cb-indicator {
+  position: absolute; bottom: 1px; left: 50%; width: 0; height: 3px; border-radius: 2px; transform: translateX(-50%);
+  background: var(--mt-indicator); transition: width 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.mt-cb-btn.is-open + .mt-cb-indicator { width: 16px; }
+.mt-cb-btn[data-tooltip]::after { bottom: calc(100% + 10px); }
+
+/* Fallback floating button when Meet's control bar can't be found */
+.mt-fab {
+  position: fixed; right: 16px; bottom: 96px; z-index: 2147483000; width: 48px; height: 48px;
+  border-radius: 16px; background: var(--mt-surface-highest); color: var(--mt-on-surface);
+}
