@@ -130,6 +130,21 @@
     $('#sim-rejoin').addEventListener('click', () => location.reload());
   }
 
+  // Pre-join screen ("Ready to join?"): no call UI, no Leave button — like Meet before joining.
+  function preJoin() {
+    sim.inCall = false;
+    document.body.insertAdjacentHTML('afterbegin', `<div class="sim-left" id="sim-prejoin"><h1>Ready to join?</h1><button id="sim-join">Join now</button></div>`);
+    $('#sim-join').addEventListener('click', () => sim.join());
+  }
+
+  sim.join = function join() {
+    $('#sim-prejoin')?.remove();
+    sim.inCall = true;
+    render();
+    sim.log.push('joined');
+    if (params.get('autoplay') !== '0') sim.play();
+  };
+
   function newBlock(speaker) {
     const r = region();
     const block = document.createElement('div');
@@ -204,6 +219,6 @@
   sim.leave = leaveCall;
   sim.lastBlock = lastBlock;
 
-  render();
-  if (params.get('autoplay') !== '0') sim.play();
+  if (params.get('prejoin') === '1') preJoin();
+  else sim.join();
 })();
