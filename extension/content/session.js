@@ -53,6 +53,7 @@
         });
       } catch { /* extension context gone */ }
       addEventListener('pagehide', () => {
+        if (this.destroyed) return;
         this.saveNow();
         MT.send('tab:bye');
       });
@@ -63,14 +64,7 @@
     // ---------- lifecycle ----------
 
     poll() {
-      if (!MT.contextAlive()) {
-        if (!this.contextLost) {
-          this.contextLost = true;
-          this.banner = { kind: 'reload' };
-          this.emit('state');
-        }
-        return;
-      }
+      if (!MT.contextAlive()) return this.onContextLost();
       const inCall = MT.dom.isInCall();
       if (inCall) this.misses = 0;
       if (inCall && !this.meeting && !this.starting) this.start();
@@ -106,6 +100,27 @@
       MT.captions.setOverlayVisible(this.settings.showOverlay);
       console.info('[meet-transcriber]', res.resumed ? 'resumed' : 'started', this.meeting.id);
       this.emit('state');
+    }
+
+    // The extension was reloaded or updated under this page, so nothing can be saved from here any more. Stop
+    // claiming to record; the service worker injects a fresh copy that takes over (destroy()) and resumes the
+    // meeting. The banner is for the case when that copy never comes.
+    onContextLost() {
+      if (this.contextLost) return;
+      this.contextLost = true;
+      this.tracker?.stop();
+      this.status = 'ended';
+      this.banner = { kind: 'reload' };
+      this.emit('state');
+    }
+
+    // A newer copy of the content script took over this page.
+    destroy() {
+      this.destroyed = true;
+      clearInterval(this.pollTimer);
+      clearTimeout(this.saveTimer);
+      this.tracker?.stop();
+      this.listeners.clear();
     }
 
     async end() {

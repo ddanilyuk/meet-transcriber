@@ -52,13 +52,20 @@
       this.selfLabels = new Set(['you', 'ви', 'вы']);
     }
 
-    // Restores entries from storage (e.g. after a page reload in the middle of a meeting).
+    // Restores entries from storage: after a page reload in the middle of a meeting, or when a fresh content
+    // script takes over a page whose captions still show these blocks (extension reload). Their blocks can be
+    // adopted like released ones, so captions still on screen continue their entries instead of duplicating
+    // them; the own name is restored so "You" blocks match too.
     load(entries) {
+      const now = this.opts.now();
+      const you = MT.t?.you || 'Ви';
       this.entries = (entries || []).map((e) => ({ ...e }));
       this.byId = new Map(this.entries.map((e) => [e.id, e]));
       for (const e of this.entries) {
         this.seq = Math.max(this.seq, Number(String(e.id).split('-').pop()) || 0);
         this.blockSeq = Math.max(this.blockSeq, e.block || 0);
+        if (e.block) this.released.set(e.block, { speaker: e.speaker, releasedAt: now });
+        if (e.self && e.speaker !== you && !this.selfName) this.selfName = e.speaker;
       }
     }
 

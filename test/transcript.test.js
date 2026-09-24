@@ -191,6 +191,23 @@ test('load() restores entries and continues ids without collisions', () => {
   assert.deepEqual(texts(), [['Ви', 'До перезавантаження'], ['Ви', 'Після перезавантаження']]);
 });
 
+test('after load() the captions still on screen continue their entries instead of duplicating them', () => {
+  // A fresh content script took over the page (extension reload): it sees the same captions as new DOM
+  // nodes and does not know the own name yet.
+  const first = setup();
+  first.b.setSelfName('Denys Danyliuk');
+  first.b.update([{ key: A, speaker: 'Олена', text: 'Добрий день усім почнімо' }, { key: B, speaker: 'You', text: 'Привіт це я' }]);
+  const saved = JSON.parse(JSON.stringify(first.b.snapshot()));
+
+  const { b, tick, texts } = setup();
+  b.load(saved);
+  const A2 = { id: 'block-a2' };
+  const B2 = { id: 'block-b2' };
+  b.update([{ key: A2, speaker: 'Олена', text: 'Добрий день усім почнімо з огляду' }, { key: B2, speaker: 'You', text: 'Привіт це я' }]);
+  tick();
+  assert.deepEqual(texts(), [['Олена', 'Добрий день усім почнімо з огляду'], ['Denys Danyliuk', 'Привіт це я']]);
+});
+
 test('unchanged snapshots report no change', () => {
   const { b, tick } = setup();
   b.update([{ key: A, speaker: 'Ви', text: 'Тиша' }]);

@@ -21,8 +21,8 @@
     "service_worker": "background/sw.js",
     "type": "module"
   },
-  "permissions": ["storage", "unlimitedStorage", "downloads", "alarms"],
-  "host_permissions": ["http://localhost:8765/*"],
+  "permissions": ["storage", "unlimitedStorage", "downloads", "alarms", "scripting"],
+  "host_permissions": ["https://meet.google.com/*", "http://localhost:8765/*"],
   "content_scripts": [
     {
       "matches": ["https://meet.google.com/*"],

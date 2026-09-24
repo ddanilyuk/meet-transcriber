@@ -3,6 +3,7 @@ import { createRouter } from './router.js';
 import { devPing, devStatus } from './dev-reload.js';
 
 const ARCHIVE_URL = chrome.runtime.getURL('archive/archive.html');
+const MEET_TABS = 'https://meet.google.com/*';
 const END_ALARM = 'end:';
 const END_GRACE_MIN = 1.5;
 const SWEEP_ALARM = 'sweep';
@@ -68,8 +69,28 @@ function sweep() {
   return router.sweep({ tabExists }).catch((err) => console.error('[meet-transcriber] sweep failed', err));
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+// After an install, reload or update, the content scripts already running in Meet tabs are orphaned: they
+// keep running but can no longer reach the extension, so a call in progress would silently stop being saved.
+// Inject fresh copies (same files as the manifest); the new copy retires the orphan and resumes the same
+// meeting record (content/main.js).
+async function reinjectMeetTabs() {
+  const scripts = chrome.runtime.getManifest().content_scripts || [];
+  for (const tab of await chrome.tabs.query({ url: MEET_TABS })) {
+    const target = { tabId: tab.id };
+    try {
+      for (const cs of scripts) {
+        if (cs.css?.length) await chrome.scripting.insertCSS({ target, files: cs.css });
+        if (cs.js?.length) await chrome.scripting.executeScript({ target, files: cs.js, world: cs.world || 'ISOLATED' });
+      }
+    } catch (err) {
+      console.warn('[meet-transcriber] could not reinject into tab', tab.id, err);
+    }
+  }
+}
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
   chrome.alarms.create(SWEEP_ALARM, { periodInMinutes: SWEEP_PERIOD_MIN });
+  if (reason === 'install' || reason === 'update') reinjectMeetTabs();
 });
 
 chrome.runtime.onStartup.addListener(() => {

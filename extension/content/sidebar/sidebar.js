@@ -27,6 +27,7 @@
       this.host.id = 'meet-transcriber-root';
       this.shadow = this.host.attachShadow({ mode: 'open' });
       await this.loadStyles(this.shadow);
+      if (this.destroyed) return;
       this.shadow.innerHTML += `
         <div class="mt-panel" hidden>
           <div data-slot="header"></div>
@@ -48,12 +49,24 @@
       this.shadow.addEventListener('input', (e) => this.onInput(e));
       this.shadow.addEventListener('keydown', (e) => this.onKeyDown(e));
       this.list.addEventListener('scroll', () => this.onScroll(), { passive: true });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.menu) this.setMenu(null); });
-      addEventListener('resize', () => this.layout());
+      const { signal } = (this.pageListeners = new AbortController());
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.menu) this.setMenu(null); }, { signal });
+      addEventListener('resize', () => this.layout(), { signal });
 
       this.session.on((kind) => this.render(kind));
-      setInterval(() => this.tick(), 1000);
+      this.tickTimer = setInterval(() => this.tick(), 1000);
       this.render('all');
+    }
+
+    // A newer copy of the content script took over this page: leave no UI, listeners or stage transform behind.
+    destroy() {
+      this.destroyed = true;
+      clearInterval(this.tickTimer);
+      clearTimeout(this.toastTimer);
+      this.pageListeners?.abort();
+      this.layoutObserver?.disconnect();
+      this.host?.remove();
+      document.documentElement.classList.remove('mt-panel-open');
     }
 
     async loadStyles(target) {
