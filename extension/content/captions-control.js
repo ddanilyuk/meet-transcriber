@@ -55,5 +55,26 @@
     document.documentElement.classList.toggle(HIDE_CLASS, !visible);
   }
 
-  MT.captions = { enableCaptions, setUkrainian, currentLanguage, markRoot, setOverlayVisible, waitFor };
+  // True when Meet keeps a band for captions under the video although the overlay is collapsed
+  // (it measured the overlay before our CSS applied). Normal gap stage→controls is ~70px, reserved ~280px.
+  function spaceReserved() {
+    const stage = dom().stage();
+    const leave = dom().leaveButton();
+    if (!stage || !leave || !stage.offsetParent) return false;
+    // Layout box, not getBoundingClientRect(): the sidebar may scale the stage with a transform.
+    const bottom = stage.offsetParent.getBoundingClientRect().top + stage.offsetTop + stage.offsetHeight;
+    return leave.getBoundingClientRect().top - bottom > 150;
+  }
+
+  // Switching captions off and on makes Meet measure the (now collapsed) overlay again.
+  async function remeasure() {
+    if (dom().captionsState() !== 'on') return false;
+    dom().captionsButton()?.click();
+    if (!(await waitFor(() => dom().captionsState() === 'off', 2000))) return false;
+    await sleep(300);
+    dom().captionsButton()?.click();
+    return !!(await waitFor(() => dom().findRegion(), 3000));
+  }
+
+  MT.captions = { enableCaptions, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor };
 })(globalThis);

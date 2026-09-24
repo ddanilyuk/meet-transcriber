@@ -135,12 +135,19 @@
     return m ? m[1] : null;
   }
 
+  // Meet keeps document.title as "Meet - <calendar title or code>". The top-left title element is only a
+  // fallback: right after joining it can briefly hold other text (e.g. "Meeting details").
   function meetingTitle() {
-    const el = first(document, S.meetingTitle);
-    const fromDom = text(el);
-    if (fromDom) return fromDom;
-    const t = document.title.replace(/^Meet\s*[-–—:]\s*/i, '').trim();
-    return t && !/^google meet$/i.test(t) ? t : meetingCode();
+    const t = document.title.replace(/^(Google\s+)?Meet\s*[-–—:]\s*/i, '').trim();
+    if (t && !/^(google )?meet$/i.test(t)) return t;
+    const fromDom = text(first(document, S.meetingTitle));
+    return fromDom || meetingCode();
+  }
+
+  // Meet's video stage (the <main> that holds participant tiles).
+  function stage() {
+    const tile = document.querySelector('[data-participant-id]');
+    return tile?.closest('main') || null;
   }
 
   // Own display name, read from the self-view tile (the only tile with reframe / effects buttons).
@@ -160,9 +167,21 @@
 
   // Where to insert our control-bar button: before the first panel toggle of the right-hand group.
   function controlBarAnchor() {
-    const buttons = S.panelIcons.map((ic) => buttonsByIcon(ic).find((b) => b.getBoundingClientRect().top > innerHeight * 0.6)).filter(Boolean);
-    if (buttons.length < 2) return null;
-    const [firstBtn, other] = buttons;
+    // Visible panel toggles in the bottom area, left to right. A button can contain several icons
+    // (e.g. `chat` plus a hidden `chat_bubble` badge), so keep only buttons that are really apart.
+    const seen = new Set();
+    const buttons = S.panelIcons
+      .flatMap((ic) => buttonsByIcon(ic))
+      .filter((b) => {
+        const r = b.getBoundingClientRect();
+        if (seen.has(b) || r.width < 16 || r.top < innerHeight * 0.6) return false;
+        seen.add(b);
+        return true;
+      })
+      .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+    const firstBtn = buttons[0];
+    const other = buttons.find((b) => b.getBoundingClientRect().left - firstBtn?.getBoundingClientRect().left > 24);
+    if (!firstBtn || !other) return null;
     let wrapper = firstBtn;
     while (wrapper.parentElement && !wrapper.parentElement.contains(other)) wrapper = wrapper.parentElement;
     if (!wrapper.parentElement) return null;
@@ -181,6 +200,6 @@
   MT.dom = {
     text, buttonsByIcon, leaveButton, isInCall, captionsState, captionsButton, findRegion, parseBlocks,
     captionRoot, languageCombobox, languageLabel, isUkrainian, meetingCode, meetingTitle, selfName,
-    controlBarAnchor, nativePanel,
+    controlBarAnchor, nativePanel, stage,
   };
 })(globalThis);

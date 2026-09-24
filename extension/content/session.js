@@ -80,14 +80,18 @@
 
     async start() {
       this.starting = true;
-      const res = await MT.send('session:start', { code: MT.dom.meetingCode(), title: MT.dom.meetingTitle(), url: location.origin + location.pathname });
+      const title = MT.dom.meetingTitle();
+      const res = await MT.send('session:start', { code: MT.dom.meetingCode(), title, url: location.origin + location.pathname });
       this.starting = false;
       if (!res) return;
       this.meeting = res.meeting;
+      this.lastAutoTitle = title;
+      this.titleDirty = false;
       this.settings = { ...DEFAULT_SETTINGS, ...res.settings };
       this.status = 'waiting';
       this.languageTried = false;
       this.ccAttempts = 0;
+      this.reclaims = 0;
       this.builder = new MT.TranscriptBuilder();
       this.builder.load(this.meeting.entries);
       this.tracker = new MT.CaptionTracker({
@@ -164,11 +168,16 @@
         }
       }
 
+      // Follow Meet's title only when it changes, so a rename in the archive is not overwritten.
       const title = MT.dom.meetingTitle();
-      if (title && title !== this.meeting.title && title !== this.meeting.code) {
-        this.meeting.title = title;
-        this.scheduleSave();
-        changed = true;
+      if (title && title !== this.lastAutoTitle) {
+        this.lastAutoTitle = title;
+        if (title !== this.meeting.title) {
+          this.meeting.title = title;
+          this.titleDirty = true;
+          this.scheduleSave();
+          changed = true;
+        }
       }
 
       if (changed) this.emit('state');
@@ -185,6 +194,21 @@
         }
         this.refresh();
       }
+      this.reclaimSpaceSoon();
+    }
+
+    // If Meet still reserves room for the hidden captions, make it measure the collapsed overlay again.
+    reclaimSpaceSoon(delay = 1500) {
+      clearTimeout(this.reclaimTimer);
+      this.reclaimTimer = setTimeout(async () => {
+        // Toggling captions is disruptive, so never more than twice per meeting.
+        if (this.settings.showOverlay || this.reclaiming || this.reclaims >= 2 || !MT.captions.spaceReserved()) return;
+        this.reclaims = (this.reclaims || 0) + 1;
+        this.reclaiming = true;
+        console.info('[meet-transcriber] reclaiming the space Meet reserved for captions');
+        await MT.captions.remeasure();
+        this.reclaiming = false;
+      }, delay);
     }
 
     // ---------- persistence ----------
@@ -198,10 +222,12 @@
       clearTimeout(this.saveTimer);
       if (!this.meeting || !this.builder) return;
       const entries = this.builder.snapshot();
-      await MT.send('session:update', {
-        id: this.meeting.id,
-        patch: { entries, speakers: this.builder.speakers(), title: this.meeting.title, language: this.meeting.language },
-      });
+      const patch = { entries, speakers: this.builder.speakers(), language: this.meeting.language };
+      if (this.titleDirty) {
+        patch.title = this.meeting.title;
+        this.titleDirty = false;
+      }
+      await MT.send('session:update', { id: this.meeting.id, patch });
     }
 
     // ---------- actions from the sidebar ----------
@@ -220,7 +246,10 @@
 
     async setSetting(key, value) {
       this.settings = { ...this.settings, [key]: value };
-      if (key === 'showOverlay') MT.captions.setOverlayVisible(value);
+      if (key === 'showOverlay') {
+        MT.captions.setOverlayVisible(value);
+        if (!value) this.reclaimSpaceSoon(600);
+      }
       this.emit('settings');
       await MT.send('settings:set', { patch: { [key]: value } });
     }

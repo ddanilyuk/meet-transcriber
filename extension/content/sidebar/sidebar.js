@@ -127,7 +127,7 @@
     render() {
       this.renderButton();
       this.panel.hidden = !this.open;
-      if (!this.open) return;
+      if (!this.open) return this.layout();
       const vm = this.vm();
       this.setSlot('header', tpl.header(vm));
       this.setSlot('meta', tpl.meta(vm));
@@ -224,69 +224,75 @@
       }
     }
 
-    // Keeps the panel between Meet's top bar and control bar, left of Meet's own side panel if one is open.
+    // Keeps the panel between Meet's top bar and control bar, left of Meet's own side panel if one is open,
+    // and shrinks the video stage so the panel does not cover it.
     layout() {
+      const html = document.documentElement;
+      const stage = MT.dom.stage();
+      const shrink = this.open && !!stage && !!this.session.meeting;
+      html.classList.toggle('mt-panel-open', shrink);
       if (!this.open) return;
-      const style = this.host.style;
+
       const native = MT.dom.nativePanel();
       const right = native ? Math.max(16, innerWidth - native.getBoundingClientRect().left + 16) : 16;
       const leave = MT.dom.leaveButton();
       const top = leave ? leave.getBoundingClientRect().top : 0;
       const bottom = top > innerHeight / 2 ? Math.round(innerHeight - top + 16) : 96;
-      style.setProperty('--mt-right', `${right}px`);
-      style.setProperty('--mt-bottom', `${bottom}px`);
+      this.host.style.setProperty('--mt-right', `${right}px`);
+      this.host.style.setProperty('--mt-bottom', `${bottom}px`);
+
+      if (shrink) {
+        if (!stage.hasAttribute('data-mt-stage')) stage.setAttribute('data-mt-stage', '');
+        // offsetWidth/offsetHeight ignore our transform, so this converges instead of shrinking repeatedly.
+        const w = stage.offsetWidth;
+        const h = stage.offsetHeight;
+        const scale = w > 0 ? Math.max(0.4, Math.min(1, (w - 360 - 16) / w)) : 1;
+        html.style.setProperty('--mt-stage-scale', scale.toFixed(4));
+        html.style.setProperty('--mt-stage-ty', `${Math.round((h - h * scale) / 2)}px`);
+      }
     }
 
     // ---------- control-bar button ----------
+    // The button is not inserted into Meet's control bar: Meet's bar is responsive and hides its own
+    // buttons (e.g. chat) to make room for foreign ones, then rebuilds and drops them. Instead it is a
+    // separate pill styled like Meet's right-hand group, positioned just left of that group.
 
     renderButton() {
+      const inCall = !!this.session.meeting && MT.dom.isInCall();
+      if (!inCall) return this.setSlot('fab', '');
       const recording = this.session.status === 'recording';
-      const html = tpl.controlButton({ open: this.open, recording });
-      if (this.buttonSlot && this.buttonHost?.isConnected) {
-        if (this.buttonHtml !== html) {
-          this.buttonSlot.innerHTML = html;
-          this.buttonHtml = html;
-        }
-        this.setSlot('fab', '');
-        return;
-      }
-      // Not attached to Meet's control bar (yet): offer a floating button while in a call.
-      const inCall = this.session.meeting && MT.dom.isInCall();
-      this.setSlot('fab', inCall && this.fabAllowed
-        ? `<button class="mt-cb-btn mt-fab${this.open ? ' is-open' : ''}" data-action="toggle-panel" aria-label="${t.openPanel}" data-tooltip="${t.openPanel}">${MT.icon('transcript')}${recording ? '<span class="mt-cb-badge"></span>' : ''}</button>`
-        : '');
+      this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`);
+      this.positionButton();
     }
 
-    async attachButton() {
-      if (this.buttonHost?.isConnected || this.attaching) return;
-      const anchor = MT.dom.controlBarAnchor();
-      if (!anchor) return;
-      this.attaching = true;
-      const host = document.createElement('div');
-      host.className = 'meet-transcriber-button';
-      host.style.display = 'flex';
-      const shadow = host.attachShadow({ mode: 'open' });
-      await this.loadStyles(shadow);
-      const slot = document.createElement('div');
-      slot.style.display = 'contents';
-      shadow.append(slot);
-      shadow.addEventListener('click', (e) => this.onClick(e));
-      anchor.group.insertBefore(host, anchor.before);
-      this.buttonHost = host;
-      this.buttonSlot = slot;
-      this.buttonHtml = null;
-      this.attaching = false;
-      this.renderButton();
+    positionButton() {
+      const pill = this.slots.fab.firstElementChild;
+      if (!pill) return;
+      const PILL = 56;
+      const GAP = 8;
+      const group = MT.dom.controlBarAnchor()?.group;
+      const leave = MT.dom.leaveButton();
+      let left;
+      let top;
+      if (group) {
+        const g = group.getBoundingClientRect();
+        left = g.left - GAP - PILL;
+        top = g.top + (g.height - PILL) / 2;
+        // Not enough room between the centre controls and the right group: sit above the group instead.
+        const centreRight = leave ? leave.getBoundingClientRect().right : 0;
+        if (left < centreRight + 12) {
+          left = g.right - PILL;
+          top = g.top - GAP - PILL;
+        }
+      } else {
+        left = innerWidth - 16 - PILL;
+        top = (leave ? leave.getBoundingClientRect().top : innerHeight - 72) - GAP - PILL;
+      }
+      pill.style.left = `${Math.round(left)}px`;
+      pill.style.top = `${Math.round(top)}px`;
     }
 
     tick() {
-      if (this.session.meeting && MT.dom.isInCall()) {
-        this.attachButton();
-        this.inCallSince ??= Date.now();
-        this.fabAllowed = Date.now() - this.inCallSince > 5000;
-      } else {
-        this.inCallSince = null;
-      }
       this.render('tick');
     }
 

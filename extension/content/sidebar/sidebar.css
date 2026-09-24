@@ -250,7 +250,11 @@ mark.mt-hl { background: var(--mt-highlight); color: inherit; border-radius: 2px
 .mt-snackbar span { flex: 1; }
 .mt-snackbar .mt-btn.is-text { color: #0b57d0; }
 
-/* ---------- Control bar button (separate shadow root inside Meet's right button group) ---------- */
+/* ---------- Control bar button: a pill next to Meet's right button group, styled like it ---------- */
+.mt-cb-float {
+  position: fixed; z-index: 2147483000; display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 28px; background: #1e1f20;
+}
 .mt-cb-wrap { position: relative; display: flex; flex-direction: column; align-items: center; width: 48px; height: 56px; justify-content: center; margin: 0 2px; }
 .mt-cb-btn {
   position: relative; display: flex; align-items: center; justify-content: center;
@@ -271,8 +275,3 @@ mark.mt-hl { background: var(--mt-highlight); color: inherit; border-radius: 2px
 .mt-cb-btn.is-open + .mt-cb-indicator { width: 16px; }
 .mt-cb-btn[data-tooltip]::after { bottom: calc(100% + 10px); }
 
-/* Fallback floating button when Meet's control bar can't be found */
-.mt-fab {
-  position: fixed; right: 16px; bottom: 96px; z-index: 2147483000; width: 48px; height: 48px;
-  border-radius: 16px; background: var(--mt-surface-highest); color: var(--mt-on-surface);
-}
