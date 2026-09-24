@@ -123,6 +123,7 @@
   z-index: 5;
 }
 [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; }
+.is-active[data-tooltip]::after { display: none; }
 [data-tooltip-pos="bottom"]::after { bottom: auto; top: calc(100% + 6px); }
 [data-tooltip-pos="left"]::after { left: auto; right: 0; transform: none; }
 
