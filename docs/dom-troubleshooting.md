@@ -18,7 +18,8 @@
 | Субтитри видно, хоча «Субтитри на екрані» вимкнено | CSS не знаходить корінь оверлея | `content/page.css`, `sel.captionRoot`, `captions.markRoot()` |
 | Під відео чорна смуга, відео не на весь екран | Meet зарезервував місце під субтитри: `:has()`-правило не спрацювало раніше за замір | `content/page.css`, `captions.spaceReserved()`, `session.reclaimSpaceSoon()` |
 | Кнопки «Транскрипт» немає, або вона не там | Не знаходиться права група кнопок | `sel.panelIcons`, `dom.controlBarAnchor()`, `Sidebar.positionButton()` |
-| Сайдбар перекриває рідну панель Meet (чат, люди) | Не знаходиться рідна панель | `sel.nativePanel`, `dom.nativePanel()` |
+| Сайдбар перекриває рідну панель Meet (чат, люди), не збігається з нею по висоті або заходить на панель реакцій | Не знаходиться слот рідних панелей, або Meet перестав писати цільові відступи inline | `sel.nativePanel`, `dom.sidePanelSlot()`, `dom.sidePanelBox()` (порівняйте з `main.style.inset` і `style` батька `.R3Gmyc`) |
+| Сайдбар зʼявляється без виїзду, або відео звужується не синхронно з ним | Meet змінив тривалість чи криву анімації панелей, або правило для `<main>` перебило наш `transition` | `--mt-slide` у `sidebar.css`, `[data-mt-stage]` у `page.css`; порівняйте з `getComputedStyle(.R3Gmyc).transition` |
 | Відео не зсувається, коли сайдбар відкритий | Не знаходиться сцена | `dom.stage()` (шукає `[data-participant-id]` → `closest('main')`) |
 | Мітинг не завершується, файл не зберігається | Не розпізнається кнопка виходу | `MT.ligature.callEnd`, `sel.leaveButtonJsname`, `dom.isInCall()` |
 | Неправильна назва мітингу | Змінився формат `document.title` | `dom.meetingTitle()`, `sel.meetingTitle` |
@@ -120,7 +121,7 @@ let g = chat; while (g && g.parentElement && g.parentElement.children.length < 3
 
 ```js
 const sh = document.getElementById('meet-transcriber-root').shadowRoot;
-if (sh.querySelector('.mt-panel').hidden) { sh.querySelector('.mt-cb-float [data-action="toggle-panel"]')?.click(); await new Promise(r => setTimeout(r, 500)); }
+if (!sh.querySelector('.mt-panel').classList.contains('is-open')) { sh.querySelector('.mt-cb-float [data-action="toggle-panel"]')?.click(); await new Promise(r => setTimeout(r, 600)); }
 ({ chip: sh.querySelector('.mt-chip')?.textContent, banner: sh.querySelector('.mt-banner')?.textContent.trim().slice(0, 80),
    turns: [...sh.querySelectorAll('.mt-turn')].slice(-3).map(t => t.querySelector('.mt-speaker').textContent + ': ' + t.textContent.slice(-80)) })
 ```

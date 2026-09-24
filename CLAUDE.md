@@ -66,12 +66,18 @@ Key pieces and the non-obvious reasons behind them:
   `MT.captions.remeasure()` toggles CC off/on (max twice per meeting). Never use `display:none` or turn captions off to
   hide them — the region disappears from the DOM.
 - `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes and the list is reconciled
-  per speaker turn (live captions update ~3×/s). Panel and button are shown only while `Sidebar.inCall()` (active
-  session + Meet's Leave button) — never on the Meet home page, the pre-join screen or after leaving; the persisted
-  `meetTranscriber:panelOpen` flag is only the preference for the next call. The open/close button is a separate pill positioned next to Meet's
+  per speaker turn (live captions update ~3×/s). Panel and button exist only while `Sidebar.inCall()` (active
+  session + Meet's Leave button) — never on the Meet home page, the pre-join screen or after leaving. The panel
+  starts closed on every page load and every call and opens only from the button (the open state is not persisted).
+  During a call it stays rendered and slides like Meet's own side panels: `.is-open` toggles
+  `translateX(100% + right)` → `none` with Meet's 0.5s `cubic-bezier(0.4, 0, 0.2, 1)`. Its box comes from
+  `MT.dom.sidePanelBox()`: Meet's *target* layout in inline styles (side-panel slot top/bottom + padding, the stage's
+  right inset, which is 392 while a native panel is open), watched with a MutationObserver so it moves in step with
+  Meet's animations. The open/close button is a separate pill positioned next to Meet's
   right control group, **not inserted into it**: Meet's control bar is responsive, hides its own chat button to make
   room for foreign nodes and later drops them. While the panel is open the Meet stage (`<main>`) is scaled with a CSS
-  transform via `data-mt-stage` + CSS variables on `<html>`; Meet's inline styles on `<main>` are rewritten by Meet.
+  transform via `data-mt-stage` + CSS variables on `<html>`: Meet lays tiles out from its own model, so shrinking
+  `<main>`'s insets (even with `!important` and a `resize` event) does not re-layout the tiles.
 - `background/router.js` — message protocol (`tab:hello|bye`, `session:start|update|end`, `settings:get|set`,
   `meeting:get|export|rename|delete`, `archive:open`, `dev:status|ping`). Without the `tabs` permission the SW cannot see
   navigations, so `tab:bye` on `pagehide` schedules an `alarms`-based end that `tab:hello`/`session:start` cancels.

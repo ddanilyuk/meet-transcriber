@@ -75,6 +75,20 @@ div.fJsklc (position:absolute; caption overlay root, 216px high at the bottom of
   closed). Their open state comes from Meet's layout model, so a foreign panel cannot make Meet shrink the stage;
   the extension scales the stage with a CSS transform while its panel is open.
 
+## Side panel motion and layout targets (2026-09-24)
+- Closed `ASIDE.R3Gmyc` has class `qdulke` and `transform: translateX(376px)` (width 360 + 16 gap); open, the class is
+  gone and the transform is `none`. Transition: `transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s …`.
+- Its parent slot (`.fJsklc`, absolute) carries Meet's target geometry inline: `right: 0; top: 48px; bottom: 128px`
+  with padding `16px 16px 8px 0`, i.e. the panel box is top 64, right 16, bottom 136. The slot's `bottom` transitions
+  0.5s and becomes `80px` (panel bottom 88) when the reactions bar is hidden.
+- `<main>` (the stage) has inline `inset: 64px 16px 136px`; with a native panel open Meet writes
+  `64px 392px 136px 16px` immediately and animates it with `top/left/right/bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1)`.
+  Inline styles are therefore the *target* layout; rects lag behind during the animation.
+- Forcing `main { right: 392px !important }` (and dispatching `resize`) shrinks `<main>` but the tiles keep their size
+  and overflow it: Meet lays tiles out from its model, not from the stage's box. Scaling stays the only option.
+- In a hidden tab CSS transitions do not advance (computed values stay at the start), so geometry experiments need a
+  visible tab or `transition: none` on the elements being measured.
+
 ## Side panel look (Meet 2026, dark)
 - Native panel (`.R3Gmyc`, "In-call messages"): x = viewport − 16 − 360, top 64, width 360, height to 8px above
   the control bar; bg `#202124`, radius 20px, no shadow. Close button 40×40.
