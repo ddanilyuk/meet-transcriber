@@ -17,7 +17,11 @@ html.mt-hide-captions .fJsklc:has([jsname="dsyhDe"]) {
    way to make room without fighting its inline styles. Values are computed in sidebar.js. */
 [data-mt-stage] {
   transform-origin: 0 0;
-  transition: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+  /* Meet's own inset transition plus one for our transform, in step with the panel's slide. Meet's rule for
+     <main> is more specific, hence !important. */
+  transition: top 500ms cubic-bezier(0.4, 0, 0.2, 1), right 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 500ms cubic-bezier(0.4, 0, 0.2, 1), left 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 500ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 html.mt-panel-open [data-mt-stage] {
   transform: translateY(var(--mt-stage-ty, 0px)) scale(var(--mt-stage-scale, 1)) !important;

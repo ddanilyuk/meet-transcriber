@@ -6,6 +6,7 @@
   const L = MT.ligature;
 
   const text = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
+  const px = (v) => (v ? parseFloat(v) : NaN); // '' (not set) → NaN
 
   function first(scope, selectors) {
     for (const s of selectors) {
@@ -188,18 +189,59 @@
     return { group: wrapper.parentElement, before: wrapper };
   }
 
-  // Meet's own side panel (chat, people, …) if one is open, so ours can sit next to it.
-  function nativePanel() {
-    for (const s of S.nativePanel) {
-      const el = document.querySelector(s);
-      if (el && el.getBoundingClientRect().width > 200) return el;
+  // Meet's slot for its own side panels (chat, people, …): the parent of the native panel, which stays in the
+  // DOM parked past the right edge while closed.
+  function sidePanelSlot() {
+    return first(document, S.nativePanel)?.parentElement || null;
+  }
+
+  // The box Meet gives its side panels, as fixed-position insets. Read from Meet's layout targets (inline
+  // styles) rather than current rects, so it is already final while Meet animates a change:
+  // - top/bottom: the slot's inline top/bottom plus its padding (they move with the reactions bar);
+  // - right: the stage's inline right inset, which grows from 16px by a native panel's width + gap while one
+  //   is open, so our panel lands left of it.
+  // Falls back to the Leave button and rects when Meet's structure is not recognised (e.g. in the harness).
+  function sidePanelBox() {
+    const main = stage();
+    const slot = sidePanelSlot();
+    let top = NaN;
+    let bottom = NaN;
+    if (slot) {
+      const cs = getComputedStyle(slot);
+      top = px(slot.style.top) + px(cs.paddingTop);
+      bottom = px(slot.style.bottom) + px(cs.paddingBottom);
     }
-    return null;
+    if (!(top >= 0 && bottom >= 0) && main) {
+      top = px(main.style.top);
+      bottom = px(main.style.bottom);
+    }
+    if (!(top >= 0 && bottom >= 0)) {
+      const leave = leaveButton();
+      const leaveTop = leave ? leave.getBoundingClientRect().top : 0;
+      top = 64;
+      bottom = leaveTop > innerHeight / 2 ? Math.round(innerHeight - leaveTop + 16) : 96;
+    }
+    let right = main ? px(main.style.right) : NaN;
+    if (!(right >= 0)) {
+      const panel = first(document, S.nativePanel);
+      right = panel ? innerWidth - panel.getBoundingClientRect().left + 16 : 16;
+    }
+    return { top, bottom, right: Math.max(16, right) };
+  }
+
+  // The stage's size once Meet's current layout change settles: its container minus Meet's inline insets.
+  // The current box lags behind while Meet animates the insets. offsetWidth/offsetHeight (they ignore our
+  // transform) are the fallback.
+  function stageSize(el) {
+    const parent = el.offsetParent;
+    const w = parent ? parent.clientWidth - px(el.style.left) - px(el.style.right) : NaN;
+    const h = parent ? parent.clientHeight - px(el.style.top) - px(el.style.bottom) : NaN;
+    return { w: w > 0 ? w : el.offsetWidth, h: h > 0 ? h : el.offsetHeight };
   }
 
   MT.dom = {
     text, buttonsByIcon, leaveButton, isInCall, captionsState, captionsButton, findRegion, parseBlocks,
     captionRoot, languageCombobox, languageLabel, isUkrainian, meetingCode, meetingTitle, selfName,
-    controlBarAnchor, nativePanel, stage,
+    controlBarAnchor, sidePanelSlot, sidePanelBox, stage, stageSize,
   };
 })(globalThis);

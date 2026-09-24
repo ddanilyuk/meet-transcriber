@@ -117,16 +117,24 @@
     }
 
     // The panel and its button exist only during a call: not on the Meet home page, the pre-join screen or
-    // after leaving.
+    // after leaving. Within a call the panel is always rendered and slides in and out like Meet's own panels.
     inCall() {
       return !!this.session.meeting && MT.dom.isInCall();
+    }
+
+    isShown() {
+      return this.panel.classList.contains('is-open');
     }
 
     render() {
       if (!this.session.meeting) this.open = false; // every call starts with the panel closed
       this.renderButton();
-      this.panel.hidden = !(this.open && this.inCall());
-      if (this.panel.hidden) return this.layout();
+      const inCall = this.inCall();
+      const shown = this.open && inCall;
+      this.panel.hidden = !inCall;
+      this.panel.classList.toggle('is-open', shown);
+      this.panel.inert = !shown;
+      if (!shown) return this.layout();
       const vm = this.vm();
       this.setSlot('header', tpl.header(vm));
       this.setSlot('meta', tpl.meta(vm));
@@ -223,32 +231,41 @@
       }
     }
 
-    // Keeps the panel between Meet's top bar and control bar, left of Meet's own side panel if one is open,
-    // and shrinks the video stage so the panel does not cover it.
+    // Puts the panel in the box Meet gives its own side panels (left of one that is open) and shrinks the
+    // video stage so the panel does not cover it. Closed, the panel waits just past the right edge.
     layout() {
       const html = document.documentElement;
       const stage = MT.dom.stage();
-      const shrink = !this.panel.hidden && !!stage;
+      this.watchLayout(stage);
+      const shrink = this.isShown() && !!stage;
       html.classList.toggle('mt-panel-open', shrink);
       if (this.panel.hidden) return;
 
-      const native = MT.dom.nativePanel();
-      const right = native ? Math.max(16, innerWidth - native.getBoundingClientRect().left + 16) : 16;
-      const leave = MT.dom.leaveButton();
-      const top = leave ? leave.getBoundingClientRect().top : 0;
-      const bottom = top > innerHeight / 2 ? Math.round(innerHeight - top + 16) : 96;
-      this.host.style.setProperty('--mt-right', `${right}px`);
-      this.host.style.setProperty('--mt-bottom', `${bottom}px`);
+      const box = MT.dom.sidePanelBox();
+      this.host.style.setProperty('--mt-top', `${box.top}px`);
+      this.host.style.setProperty('--mt-right', `${box.right}px`);
+      this.host.style.setProperty('--mt-bottom', `${box.bottom}px`);
 
       if (shrink) {
         if (!stage.hasAttribute('data-mt-stage')) stage.setAttribute('data-mt-stage', '');
-        // offsetWidth/offsetHeight ignore our transform, so this converges instead of shrinking repeatedly.
-        const w = stage.offsetWidth;
-        const h = stage.offsetHeight;
+        // Meet's target size, unaffected by our transform, so this converges instead of shrinking repeatedly.
+        const { w, h } = MT.dom.stageSize(stage);
         const scale = w > 0 ? Math.max(0.4, Math.min(1, (w - 360 - 16) / w)) : 1;
         html.style.setProperty('--mt-stage-scale', scale.toFixed(4));
         html.style.setProperty('--mt-stage-ty', `${Math.round((h - h * scale) / 2)}px`);
       }
+    }
+
+    // Meet moves its layout (a native panel opening, the reactions bar appearing) by rewriting inline styles
+    // on the stage and on the side-panel slot. Follow them at once, so the panel moves in step with Meet's
+    // own animation instead of on the next tick.
+    watchLayout(stage) {
+      const slot = MT.dom.sidePanelSlot();
+      if (this.watched && this.watched.stage === stage && this.watched.slot === slot) return;
+      this.layoutObserver ||= new MutationObserver(() => this.layout());
+      this.layoutObserver.disconnect();
+      for (const el of [stage, slot]) if (el) this.layoutObserver.observe(el, { attributes: true, attributeFilter: ['style'] });
+      this.watched = { stage, slot };
     }
 
     // ---------- control-bar button ----------
