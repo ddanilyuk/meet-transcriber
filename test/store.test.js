@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore, DEFAULT_SETTINGS, RESUME_IDLE_MS } from '../extension/background/store.js';
-import { createRouter, memoryTabMap } from '../extension/background/router.js';
+import { createRouter, memoryTabMap, STALE_MS } from '../extension/background/router.js';
 
 // chrome.storage.local-like in-memory storage.
 function memoryStorage() {
@@ -190,4 +190,27 @@ test('router: a reload of the same call keeps the pending end until the call is 
   const res = await router.handle({ type: 'session:start', code: 'abc-defg-hij' }, { tab: { id: 7 } });
   assert.equal(res.meeting.id, meeting.id);
   assert.deepEqual(calls.cancelled, [7]);
+});
+
+test('router: sweep ends meetings that no tab is recording any more', async () => {
+  const { clock, calls, router, tabMap, startWithEntry } = routerSetup();
+  const live = await startWithEntry('liv-eeee-aaa', 1); // silent for a while, but its tab is still in the call
+  const gone = await startWithEntry('gon-eeee-aaa', 2); // its tab was closed without onRemoved reaching us
+  const orphan = await startWithEntry('orp-hhhh-aaa', 3);
+  const fresh = await startWithEntry('fre-ssss-aaa', 4);
+  // Extension reload / browser restart: tab links are lost (chrome.storage.session is cleared) and come back
+  // only from content scripts that are still in a call.
+  await tabMap.remove(3);
+  await tabMap.remove(4);
+  clock.t += STALE_MS + 1000;
+  await router.store.update(fresh.id, {}); // updated just now: its content script may still re-link
+
+  const ended = await router.sweep({ tabExists: async (tabId) => tabId !== 2 });
+  assert.deepEqual(ended.sort(), [gone.id, orphan.id].sort());
+  const saved = await router.store.get(orphan.id);
+  assert.equal(saved.endedAt, saved.updatedAt, 'ends when recording actually stopped, not at sweep time');
+  assert.equal((await router.store.get(live.id)).endedAt, null, 'linked to a live tab');
+  assert.equal((await router.store.get(fresh.id)).endedAt, null, 'unlinked but updated recently');
+  assert.equal(calls.downloads.length, 2);
+  assert.deepEqual(await router.sweep({ tabExists: async () => true }), [], 'idempotent');
 });

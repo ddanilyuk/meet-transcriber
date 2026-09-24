@@ -6,6 +6,10 @@ import { createStore } from './store.js';
 
 const { format } = globalThis.MT;
 
+// An open meeting that no tab is linked to and that has not been updated for this long is over: its tab link
+// was lost (extension reload or update, browser restart) and no content script re-linked it.
+export const STALE_MS = 2 * 60 * 1000;
+
 // scheduleEnd/cancelEnd: when a meeting page unloads we cannot tell a reload from leaving Meet, so the
 // meeting is ended after a grace period unless the same tab joins that call again (session:start). A new page
 // in the tab that is not that call (tab:hello with another or no meeting code) ends it at once.
@@ -27,8 +31,8 @@ export function createRouter({
 
   // Ends the meeting once; saves the Markdown transcript when auto-download is on and there is something to save.
   // Meetings where nobody said anything are dropped instead of cluttering the archive.
-  async function endMeeting(id) {
-    const meeting = await store.end(id);
+  async function endMeeting(id, at = null) {
+    const meeting = await store.end(id, at);
     if (!meeting) return null;
     if (!meeting.entries.length) {
       await store.remove(id);
@@ -107,6 +111,22 @@ export function createRouter({
       await tabMap.remove(tabId);
       return !!(await endMeeting(id));
     },
+    // Safety net for meetings nobody can end any more: linked to a tab that no longer exists, or not linked
+    // at all and quiet for STALE_MS. They end at their last update, not at sweep time. Returns the ids of
+    // the meetings it ended.
+    async sweep({ tabExists = async () => true } = {}) {
+      const tabOf = new Map();
+      for (const [tabId, id] of await tabMap.entries()) tabOf.set(id, tabId);
+      const ended = [];
+      for (const m of await store.list()) {
+        if (m.endedAt) continue;
+        const tabId = tabOf.get(m.id);
+        if (tabId != null ? await tabExists(tabId) : now() - m.updatedAt < STALE_MS) continue;
+        if (tabId != null) await tabMap.remove(tabId);
+        if (await endMeeting(m.id, m.updatedAt)) ended.push(m.id);
+      }
+      return ended;
+    },
   };
 }
 
@@ -116,5 +136,6 @@ export function memoryTabMap() {
     get: async (tabId) => map.get(tabId) || null,
     set: async (tabId, id) => void map.set(tabId, id),
     remove: async (tabId) => void map.delete(tabId),
+    entries: async () => [...map.entries()],
   };
 }

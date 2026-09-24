@@ -5,12 +5,19 @@ import { devPing, devStatus } from './dev-reload.js';
 const ARCHIVE_URL = chrome.runtime.getURL('archive/archive.html');
 const END_ALARM = 'end:';
 const END_GRACE_MIN = 1.5;
+const SWEEP_ALARM = 'sweep';
+const SWEEP_PERIOD_MIN = 1;
 
-// tabId -> meeting id, kept in session storage so it survives service worker restarts.
+// tabId -> meeting id, kept in session storage so it survives service worker restarts (but not an extension
+// reload or a browser restart: router.sweep() covers meetings whose link was lost).
 const tabMap = {
   get: async (tabId) => (await chrome.storage.session.get(`tab:${tabId}`))[`tab:${tabId}`] || null,
   set: (tabId, id) => chrome.storage.session.set({ [`tab:${tabId}`]: id }),
   remove: (tabId) => chrome.storage.session.remove(`tab:${tabId}`),
+  entries: async () =>
+    Object.entries(await chrome.storage.session.get(null))
+      .filter(([k]) => k.startsWith('tab:'))
+      .map(([k, id]) => [Number(k.slice(4)), id]),
 };
 
 // Saves text into the Downloads folder. Service workers have no URL.createObjectURL, so use a data: URL.
@@ -53,4 +60,19 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name.startsWith(END_ALARM)) router.tabGone(Number(alarm.name.slice(END_ALARM.length)));
+  if (alarm.name === SWEEP_ALARM) sweep();
+});
+
+function sweep() {
+  const tabExists = (tabId) => chrome.tabs.get(tabId).then(() => true, () => false);
+  return router.sweep({ tabExists }).catch((err) => console.error('[meet-transcriber] sweep failed', err));
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(SWEEP_ALARM, { periodInMinutes: SWEEP_PERIOD_MIN });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create(SWEEP_ALARM, { periodInMinutes: SWEEP_PERIOD_MIN });
+  sweep(); // meetings open when the browser was closed
 });

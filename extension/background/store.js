@@ -122,12 +122,13 @@ export function createStore(storage, { now = () => Date.now() } = {}) {
       });
     },
 
-    // Marks the meeting as ended; returns it, or null if it was already ended or does not exist.
-    end(id) {
+    // Marks the meeting as ended (now, or at `at` when it is known to have stopped earlier); returns it, or null
+    // if it was already ended or does not exist.
+    end(id, at = null) {
       return serial(async () => {
         const meeting = await read(id);
         if (!meeting || meeting.endedAt) return null;
-        meeting.endedAt = now();
+        meeting.endedAt = at ?? now();
         return write(meeting);
       });
     },
