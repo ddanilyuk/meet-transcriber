@@ -7,7 +7,8 @@ import { createStore } from './store.js';
 const { format } = globalThis.MT;
 
 // scheduleEnd/cancelEnd: when a meeting page unloads we cannot tell a reload from leaving Meet, so the
-// meeting is ended after a grace period unless a Meet page in the same tab says hello again.
+// meeting is ended after a grace period unless the same tab joins that call again (session:start). A new page
+// in the tab that is not that call (tab:hello with another or no meeting code) ends it at once.
 export function createRouter({
   storage,
   tabMap = memoryTabMap(),
@@ -44,12 +45,20 @@ export function createRouter({
     return meeting;
   }
 
+  async function endLinked(tabId, id) {
+    await cancelEnd(tabId);
+    await tabMap.remove(tabId);
+    return endMeeting(id);
+  }
+
   const handlers = {
     'settings:get': () => store.getSettings(),
     'settings:set': ({ patch }) => store.setSettings(patch || {}),
 
-    'tab:hello': async (_msg, sender) => {
-      if (sender?.tab?.id != null) await cancelEnd(sender.tab.id);
+    'tab:hello': async ({ code }, sender) => {
+      const tabId = sender?.tab?.id;
+      const id = tabId != null ? await tabMap.get(tabId) : null;
+      if (id && (await store.get(id))?.code !== code) await endLinked(tabId, id);
       return store.getSettings();
     },
     'tab:bye': async (_msg, sender) => {

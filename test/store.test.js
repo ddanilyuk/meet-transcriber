@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore, DEFAULT_SETTINGS, RESUME_IDLE_MS } from '../extension/background/store.js';
-import { createRouter } from '../extension/background/router.js';
+import { createRouter, memoryTabMap } from '../extension/background/router.js';
 
 // chrome.storage.local-like in-memory storage.
 function memoryStorage() {
@@ -143,4 +143,51 @@ test('router: tab:bye without a meeting does not schedule anything', async () =>
   const router = createRouter({ storage: memoryStorage(), scheduleEnd: async (tabId) => scheduled.push(tabId) });
   await router.handle({ type: 'tab:bye' }, { tab: { id: 3 } });
   assert.deepEqual(scheduled, []);
+});
+
+// Router with a controllable clock, recorded end timers and downloads.
+function routerSetup() {
+  const clock = { t: Date.UTC(2026, 8, 24, 12, 0) };
+  const calls = { scheduled: [], cancelled: [], downloads: [] };
+  const tabMap = memoryTabMap();
+  const router = createRouter({
+    storage: memoryStorage(),
+    tabMap,
+    now: () => clock.t,
+    scheduleEnd: async (tabId) => calls.scheduled.push(tabId),
+    cancelEnd: async (tabId) => calls.cancelled.push(tabId),
+    download: async (file) => calls.downloads.push(file.filename),
+  });
+  const startWithEntry = async (code, tabId) => {
+    const { meeting } = await router.handle({ type: 'session:start', code }, { tab: { id: tabId } });
+    await router.handle({ type: 'session:update', id: meeting.id, patch: { entries: [entry('e-1', 'Ви', 'Привіт')] } }, { tab: { id: tabId } });
+    return meeting;
+  };
+  return { clock, calls, router, tabMap, startWithEntry };
+}
+
+test('router: leaving the call page for another Meet page ends the meeting at once', async () => {
+  // Leave call → "Return to home screen" before the content script counted the call as left: the old page
+  // only managed tab:bye, and the new page's hello must not keep the meeting open.
+  const { calls, router, startWithEntry } = routerSetup();
+  const meeting = await startWithEntry('abc-defg-hij', 7);
+  calls.cancelled.length = 0;
+  await router.handle({ type: 'tab:bye' }, { tab: { id: 7 } });
+  await router.handle({ type: 'tab:hello', code: null }, { tab: { id: 7 } });
+  assert.ok((await router.store.get(meeting.id)).endedAt);
+  assert.equal(calls.downloads.length, 1);
+  assert.equal(await router.tabGone(7), false, 'the tab is no longer linked');
+});
+
+test('router: a reload of the same call keeps the pending end until the call is rejoined', async () => {
+  const { calls, router, startWithEntry } = routerSetup();
+  const meeting = await startWithEntry('abc-defg-hij', 7);
+  calls.cancelled.length = 0;
+  await router.handle({ type: 'tab:bye' }, { tab: { id: 7 } });
+  await router.handle({ type: 'tab:hello', code: 'abc-defg-hij' }, { tab: { id: 7 } });
+  assert.deepEqual(calls.cancelled, [], 'the pre-join screen alone does not cancel the end');
+  assert.equal((await router.store.get(meeting.id)).endedAt, null);
+  const res = await router.handle({ type: 'session:start', code: 'abc-defg-hij' }, { tab: { id: 7 } });
+  assert.equal(res.meeting.id, meeting.id);
+  assert.deepEqual(calls.cancelled, [7]);
 });
