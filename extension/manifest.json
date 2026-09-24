@@ -36,6 +36,10 @@
         "shared/icons.js",
         "shared/util.js",
         "shared/strings.js",
+        "shared/transcript.js",
+        "content/selectors.js",
+        "content/meet-dom.js",
+        "content/caption-tracker.js",
         "content/main.js"
       ],
       "run_at": "document_idle"

@@ -32,6 +32,15 @@
     }, 2000);
   }
 
+  const builder = new MT.TranscriptBuilder();
+  const tracker = new MT.CaptionTracker({
+    builder,
+    onRegion: (region) => console.debug('[meet-transcriber] captions region', region ? 'found' : 'gone'),
+    onChange: () => {},
+  });
+  MT.debug = { builder, tracker };
+
   console.info('[meet-transcriber] content script loaded');
+  tracker.start();
   startDevReload();
 })();

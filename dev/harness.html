@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Meet - abc-defg-hij</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Google+Sans+Text:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #131314; color: #e3e3e3; font: 400 14px/20px Roboto, Arial, sans-serif; overflow: hidden; }
+  .google-symbols { font-family: 'Material Symbols Outlined'; font-style: normal; font-size: 24px; line-height: 1; display: inline-block; }
+  button { font: inherit; }
+  .sim-stage { position: fixed; inset: 0; }
+  .sim-top { position: absolute; left: 24px; top: 20px; display: flex; gap: 12px; align-items: center; font: 400 18px/24px "Google Sans", Roboto, sans-serif; }
+  .sim-top .sep { width: 1px; height: 18px; background: #5f6368; }
+  .sim-grid { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 312px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .sim-tile { position: relative; background: #3c4043; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .sim-tile .notranslate { position: absolute; left: 16px; bottom: 10px; }
+  .sim-av { width: 72px; height: 72px; border-radius: 50%; background: #5f6368; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .sim-self-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+  .sim-self-tools button { background: #0006; border: 0; color: #fff; border-radius: 16px; width: 32px; height: 32px; }
+  .fJsklc { position: absolute; left: 0; right: 0; bottom: 88px; height: 216px; }
+  .a4cQT { position: absolute; left: 32px; top: 0; z-index: 2; }
+  .sim-combo { display: inline-flex; gap: 6px; align-items: center; height: 32px; padding: 0 8px; border-radius: 16px; background: #282a2c; cursor: pointer; }
+  .sim-combo .google-symbols { font-size: 18px; }
+  .sim-listbox { position: absolute; top: 36px; left: 0; margin: 0; padding: 8px 0; list-style: none; background: #282a2c; border-radius: 8px; min-width: 240px; }
+  .sim-listbox li { padding: 8px 16px; cursor: pointer; }
+  .sim-listbox li:hover { background: #ffffff14; }
+  .iOzk7 { position: absolute; left: 16px; right: 16px; bottom: 0; top: 12px; }
+  .vNKgIf { height: 100%; overflow: auto; padding: 36px 16px 0; }
+  .nMcdL { display: flex; flex-direction: column; margin-bottom: 8px; padding-left: 52px; position: relative; }
+  .adE6rb img { position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; background: #5f6368; }
+  .NWpY1d { font-size: 14px; color: #c4c7c5; }
+  .ygicle { font-size: 22px; line-height: 30px; color: #fff; }
+  .IMKgW { display: none; }
+  .sim-controls { position: absolute; left: 0; right: 0; bottom: 16px; display: flex; justify-content: center; gap: 8px; }
+  .sim-btn { width: 48px; height: 48px; border-radius: 24px; border: 0; background: #333537; color: #e3e3e3; cursor: pointer; }
+  .sim-cc { width: 56px; border-radius: 12px; }
+  .sim-cc.is-on { background: #a8c7fa; color: #062e6f; }
+  .sim-end { width: 72px; background: #db372d; color: #fff; }
+  .sim-right { position: absolute; right: 16px; bottom: 16px; height: 56px; padding: 0 4px; border-radius: 32px; background: #1e1f20; display: flex; align-items: center; }
+  .cKYX7b, .ZB3xMd { display: flex; }
+  .r6xAKc { position: relative; width: 48px; height: 56px; display: flex; align-items: center; justify-content: center; margin: 0 2px; }
+  .sim-rbtn { width: 48px; height: 48px; border-radius: 24px; border: 0; background: transparent; color: #c4c7c5; cursor: pointer; }
+  .sim-left { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; }
+  .sim-left h1 { font: 400 32px "Google Sans", Roboto, sans-serif; }
+
+  #dev { position: fixed; left: 12px; top: 56px; z-index: 2147483600; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 10px; background: #000c; font: 12px/16px ui-monospace, Menlo, monospace; width: 210px; }
+  #dev button { font: 12px ui-monospace, Menlo, monospace; background: #333; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 4px 6px; cursor: pointer; text-align: left; }
+  #dev .row { display: flex; gap: 4px; flex-wrap: wrap; }
+  #dev-log { max-height: 140px; overflow: auto; color: #aaa; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="dev">
+  <strong>Harness</strong>
+  <div class="row">
+    <button data-dev="play">▶ play</button><button data-dev="pause">⏸ pause</button>
+    <button data-dev="speed">speed ×<span id="dev-speed"></span></button>
+  </div>
+  <div class="row">
+    <button data-dev="rerender">re-render region</button>
+    <button data-dev="leave">leave call</button>
+    <button data-dev="reset">reset storage</button>
+  </div>
+  <div id="dev-log"></div>
+</div>
+
+<script src="chrome-shim.js"></script>
+<script type="module">
+  // Background: the real router with in-page storage (see chrome-shim.js). Downloads are recorded, not saved.
+  window.__downloads = [];
+  try {
+    const { createRouter } = await import('../extension/background/router.js');
+    const router = createRouter({
+      storage: chrome.storage.local,
+      download: async ({ filename, text }) => { window.__downloads.push({ filename, text }); return { filename }; },
+      openArchive: async (hash) => { window.open(`../extension/archive/archive.html${hash || ''}`, '_blank'); },
+      now: () => Date.now(),
+    });
+    window.__harnessBackground = (msg, sender) => router.handle(msg, sender);
+  } catch (err) {
+    console.warn('[harness] background router not available yet:', err.message);
+    window.__harnessBackground = async (msg) => { console.debug('[harness bg]', msg.type); return null; };
+  }
+
+  await import('./meet-sim.js');
+
+  // Load the extension's content scripts exactly as listed in the manifest (isolated-world entry).
+  const manifest = await (await fetch('../extension/manifest.json')).json();
+  const entry = manifest.content_scripts.find((c) => c.run_at !== 'document_start');
+  for (const css of entry.css || []) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `../extension/${css}`;
+    document.head.append(link);
+  }
+  for (const js of entry.js) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = `../extension/${js}`;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(`failed to load ${js}`));
+      document.body.append(s);
+    });
+  }
+
+  // Dev toolbar
+  const speeds = [1, 2, 4, 8];
+  const speedEl = document.getElementById('dev-speed');
+  speedEl.textContent = meetSim.speed;
+  document.getElementById('dev').addEventListener('click', async (e) => {
+    const action = e.target.closest('[data-dev]')?.dataset.dev;
+    if (action === 'play') meetSim.play();
+    if (action === 'pause') meetSim.pause();
+    if (action === 'speed') { meetSim.speed = speeds[(speeds.indexOf(meetSim.speed) + 1) % speeds.length]; speedEl.textContent = meetSim.speed; }
+    if (action === 'rerender') meetSim.rerender();
+    if (action === 'leave') meetSim.leave();
+    if (action === 'reset') { await window.__shimResetStorage(); location.reload(); }
+  });
+  setInterval(() => { document.getElementById('dev-log').textContent = meetSim.log.slice(-8).join('\n'); }, 500);
+</script>
+</body>
+</html>
