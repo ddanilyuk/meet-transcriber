@@ -1,102 +1,102 @@
-# Журнал розробки
+# Development log
 
-Хронологія першої версії: що зроблено, які рішення прийнято і чому, які баги знайшлися в реальному Meet. Усе зроблено 24.09.2026 в одній сесії з Claude Code.
+A chronology of the first version: what was done, which decisions were made and why, and which bugs turned up in the real Meet. Everything was done on 24.09.2026 in a single session with Claude Code.
 
-## Вимоги
+## Requirements
 
-- **Розширення:** локальне розширення Chrome для Google Meet, що читає **українські субтитри Meet** зі сторінки.
-- **Зберігання:** тексти всіх мітингів разом з мовцями зберігаються локально.
-- **Дизайн:** сайдбар, який органічно виглядає в Meet; спершу треба придумати дизайн.
-- **Субтитри:** рідні субтитри Meet приховані, але їх можна подивитися.
-- **Процес:** git-репозиторій з поетапними комітами; тестування через Claude in Chrome.
+- **Extension:** a local Chrome extension for Google Meet that reads **Meet's Ukrainian captions** from the page.
+- **Storage:** the text of every meeting, together with the speakers, is stored locally.
+- **Design:** a sidebar that looks native in Meet; the design has to be worked out first.
+- **Captions:** Meet's own captions are hidden but can still be viewed.
+- **Process:** a git repository with step-by-step commits; testing through Claude in Chrome.
 
-Рішення користувача перед стартом:
+The user's decisions before the start:
 
-| Питання | Вибір |
+| Question | Choice |
 | --- | --- |
-| Де сайдбар | Панель усередині Meet, а не `chrome.sidePanel` |
-| Зберігання | `chrome.storage.local`, архів, експорт і **автозбереження `.md`** після мітингу |
-| Мова | Автоматично вмикати CC і ставити українську |
-| E2E | Тестовий мітинг із голосом macOS `say -v Lesya` |
-| Коміти | Далі комітити самостійно, у форматі скіла `git-plugin:create-commit` |
+| Where the sidebar lives | A panel inside Meet, not `chrome.sidePanel` |
+| Storage | `chrome.storage.local`, an archive, export and **`.md` auto-save** after the meeting |
+| Language | Turn on CC and select Ukrainian automatically |
+| E2E | A test meeting with the macOS voice `say -v Lesya` |
+| Commits | Commit independently from here on, in the format of the `git-plugin:create-commit` skill |
 
-## Етапи
+## Stages
 
-| # | Коміт | Що зроблено |
+| # | Commit | What was done |
 | --- | --- | --- |
-| 0 | — | Дослідили open-source розширення (TranscripTonic, zenmz/meet-transcript, recall.ai, gMeetTranscriptCapture, chen-ye, meet-captions-collector, openclaw): селектори, алгоритми злиття, приховування, мову. Намалювали вайрфрейм. |
-| 1 | `61569eb` | Каркас: `package.json` (без залежностей), README, `.gitignore`. |
-| 2 | `9618c53` | Жива розвідка DOM у справжньому дзвінку → [meet-dom.md](meet-dom.md). |
-| 3 | `4ed54d5` | Дизайн: `sidebar.css`, `templates.js`, іконки, українські рядки, `design/mockup.html`. |
-| 4 | `42bb665` | Скелет MV3: manifest, модульний SW, іконки (`scripts/make-icons.mjs`, чистий node+zlib), rAF-патч, dev-сервер і dev-reload. |
-| 5 | `83ec421` | `TranscriptBuilder` і 18 юніт-тестів. |
-| 6 | `1e64a92` | Скрапер: `selectors.js`, `meet-dom.js`, `caption-tracker.js`; harness (`dev/meet-sim.js`, `chrome-shim.js`). |
-| 7 | `4a91822` | Керування субтитрами: auto-CC, `uk-UA`, приховування оверлея. |
-| 8 | `8c6483d` | Сховище з чергою записів, роутер, життєвий цикл сесії, резюм, `tab:hello/bye` + `alarms`. |
-| 9 | `473d5df` | Сайдбар: слоти, звіряння реплік, пошук, меню, налаштування, копіювання. |
-| 10 | `14c8c35` | Експорт md/txt/json і автозбереження `.md` у `Downloads/Meet Transcripts/`. |
-| 11 | `03c8213` | Архів: групи за днями, повнотекстовий пошук, перейменування, експорт, видалення, налаштування. |
-| 12 | `5c5e4b0`, `cf0f518`, `6b45738` | Виправлення після реального E2E (див. нижче). |
-| 13 | `60bd2a5` | README (встановлення, використання, розробка, обмеження), доповнення [meet-dom.md](meet-dom.md). |
-| 14 | `fa2184c` | `CLAUDE.md` і документація в `docs/`. |
-| 15 | `a22c0f2`, `6c99998` | Панель лише під час дзвінка; екран «Ready to join?» у harness (`?prejoin=1`). |
-| 16 | `8ea0582` | Версія 1.0.0, тег `v1.0.0`, приватний репозиторій `github.com/ddanilyuk/meet-transcriber` (через `gh`). |
-| 17 | `b5bc5fa`, `e12027c` | Панель на старті закрита й відкривається лише кнопкою. Виїжджає, як рідний чат Meet: той самий `transform`, 0.5 с, та сама крива. Геометрію взято з цільової розкладки Meet (див. [meet-dom.md](meet-dom.md#side-panel-motion-and-layout-targets-2026-09-24)). |
-| 18 | `9714e37` | Версія 1.1.0, тег `v1.1.0`: оновлений UI панелі (етап 17). GitHub Releases для 1.0.0 і 1.1.0 (zip з `extension/`). |
-| 19 | `8e04e70`, `18ce5b8`, `6f3879e` | Багфікс «вийшов із дзвінка, а мітинг досі записується й файлу немає»: завершення за `tab:hello` з іншої сторінки, `sweep()` для загублених мітингів, перевставка контент-скриптів після оновлення розширення з перехопленням дзвінка. Версія 1.1.1. |
+| 0 | — | Studied open-source extensions (TranscripTonic, zenmz/meet-transcript, recall.ai, gMeetTranscriptCapture, chen-ye, meet-captions-collector, openclaw): selectors, merge algorithms, hiding, language. Drew a wireframe. |
+| 1 | `58263b2` | Scaffold: `package.json` (no dependencies), README, `.gitignore`. |
+| 2 | `a7797ec` | Live DOM recon in a real call → [meet-dom.md](meet-dom.md). |
+| 3 | `2fdb331` | Design: `sidebar.css`, `templates.js`, icons, Ukrainian strings, `design/mockup.html`. |
+| 4 | `9b9dd57` | MV3 skeleton: manifest, module SW, icons (`scripts/make-icons.mjs`, plain node+zlib), rAF patch, dev server and dev-reload. |
+| 5 | `f488e54` | `TranscriptBuilder` and 18 unit tests. |
+| 6 | `aabd6f5` | Scraper: `selectors.js`, `meet-dom.js`, `caption-tracker.js`; harness (`dev/meet-sim.js`, `chrome-shim.js`). |
+| 7 | `053fa7a` | Captions control: auto-CC, `uk-UA`, hiding the overlay. |
+| 8 | `6790421` | Storage with a write queue, router, session lifecycle, resume, `tab:hello/bye` + `alarms`. |
+| 9 | `fbcf79d` | Sidebar: slots, per-turn reconciliation, search, menu, settings, copying. |
+| 10 | `316a47e` | md/txt/json export and `.md` auto-save to `Downloads/Meet Transcripts/`. |
+| 11 | `08eaa16` | Archive: grouping by day, full-text search, renaming, export, deletion, settings. |
+| 12 | `559b693`, `70a504c`, `3f21e12` | Fixes after the real E2E (see below). |
+| 13 | `4a4c3f8` | README (installation, usage, development, limitations), additions to [meet-dom.md](meet-dom.md). |
+| 14 | `82cebe8` | `CLAUDE.md` and the documentation in `docs/`. |
+| 15 | `01ad2aa`, `29647bd` | Panel only during a call; a "Ready to join?" screen in the harness (`?prejoin=1`). |
+| 16 | `72314fb` | Version 1.0.0, tag `v1.0.0`, private repository `github.com/ddanilyuk/meet-transcriber` (via `gh`). |
+| 17 | `3cc17f5`, `40b94f1` | The panel starts closed and opens only from the button. It slides in like Meet's native chat: the same `transform`, 0.5 s, the same curve. The geometry is taken from Meet's target layout (see [meet-dom.md](meet-dom.md#side-panel-motion-and-layout-targets-2026-09-24)). |
+| 18 | `dc46e3c` | Version 1.1.0, tag `v1.1.0`: the updated panel UI (stage 17). GitHub Releases for 1.0.0 and 1.1.0 (a zip of `extension/`; these zips were later removed, and installation uses the release's automatic "Source code" archive). |
+| 19 | `7a2b984`, `d4b6f94`, `658fbae` | Bug fix for "left the call, but the meeting is still recording and there is no file": ending on a `tab:hello` from another page, `sweep()` for lost meetings, reinjecting the content scripts after an extension update with a takeover of the call. Version 1.1.1. |
 
-## Знахідки живої розвідки
+## Live recon findings
 
-Детально ці знахідки описано в [meet-dom.md](meet-dom.md).
+These findings are described in detail in [meet-dom.md](meet-dom.md).
 
-1. **Регіон субтитрів.** Структура: `div[role=region][aria-label=Captions][tabindex=0]` → блоки `.nMcdL` → мовець `.NWpY1d`, текст `.ygicle`. Текст розбитий на багато текстових вузлів.
-2. **Мова.** Combobox «Meeting language» містить 91 опцію. Українська має `data-value="uk-UA"`. Мову можна обрати програмним кліком.
-3. **Один блок на мовця.** Поки людина говорить, Meet дописує один блок хвилинами: блок виріс до 1264 символів за ~6 хв. Обрізання голови не спостерігали, але захист від нього лишили.
-4. **Фонова вкладка.** Коли вкладка прихована, Meet розпізнає мовлення, але **не оновлює DOM**: 0 мутацій, а потім пачка з 48, щойно вкладка знову видима. Перенаправлення `requestAnimationFrame` на таймери лагодить це. Підміна `visibilityState` не потрібна.
-5. **Приховування й текст.** `innerText` порожній під `visibility:hidden`, тож читати треба тільки `textContent`.
-6. **Бічні панелі Meet 2026 темні** (`#202124`), тому дизайн переробили під темну тему.
+1. **Captions region.** Structure: `div[role=region][aria-label=Captions][tabindex=0]` → blocks `.nMcdL` → speaker `.NWpY1d`, text `.ygicle`. The text is split across many text nodes.
+2. **Language.** The "Meeting language" combobox has 91 options. Ukrainian has `data-value="uk-UA"`. The language can be selected with a programmatic click.
+3. **One block per speaker.** While a person is speaking, Meet keeps appending to one block for minutes: a block grew to 1264 characters in ~6 min. Head truncation was not observed, but the protection against it was kept.
+4. **Background tab.** When the tab is hidden, Meet recognizes speech but **does not update the DOM**: 0 mutations, then a batch of 48 as soon as the tab is visible again. Redirecting `requestAnimationFrame` to timers fixes this. Spoofing `visibilityState` is not needed.
+5. **Hiding and text.** `innerText` is empty under `visibility:hidden`, so text must be read only with `textContent`.
+6. **Meet's 2026 side panels are dark** (`#202124`), so the design was reworked for a dark theme.
 
-## Баги, знайдені в реальному Meet, і їх виправлення
+## Bugs found in the real Meet and their fixes
 
-| Баг | Причина | Виправлення |
+| Bug | Cause | Fix |
 | --- | --- | --- |
-| Субтитри приховані, але під відео лишається чорна смуга, і відео не на весь екран (помітив користувач) | Meet міряє висоту оверлея субтитрів **у момент вмикання CC** і резервує її під відео (`inset … 352px` замість `136px`). Будь-яке приховування після цього нічого не змінює, як і синтетичний `resize`. | `page.css` згортає контейнер правилом `.fJsklc:has([jsname="dsyhDe"])` ще до заміру. Запасний шлях: `remeasure()` (CC off/on) щонайбільше 2 рази. Коміт `cf0f518`. |
-| CC вимикалися й вмикалися кожні 2 с | `spaceReserved()` міряв `getBoundingClientRect()` сцени, яку ми самі стиснули `transform`, і тому постійно «бачив» резерв. | Міряти layout-бокс через `offsetTop/offsetHeight`; ліміт `reclaims ≤ 2`. |
-| Кнопка «Транскрипт» потрапила всередину кнопки чату | Кнопка чату містить дві іконки (`chat` + прихований `chat_bubble`), і алгоритм прийняв її за двох «сусідів». | Шукати лише видимі кнопки, рознесені по горизонталі. |
-| Зникала кнопка чату, згодом зникала й наша кнопка | Панель кнопок Meet адаптивна: чужий вузол змушував Meet сховати чат (ширина 0), а під час перебудови групи вузол викидався. | Кнопка стала окремою «пігулкою» поруч із групою, DOM Meet не змінюємо. |
-| Сайдбар перекривав відео | Рідні панелі звужують сцену через модель розкладки Meet; це недоступно ззовні. | Масштабувати `<main>` через `data-mt-stage` і CSS-змінні. |
-| Назва мітингу «Meeting details» | Одразу після входу `[jsname="NeC6gb"]` тимчасово містив інший текст. | Назва береться з `document.title`; автооновлення лише під час зміни й без затирання перейменувань. |
-| Після автоперезавантаження розширення працював старий код | Новий SW брав поточний хеш файлів за базу, і правки, що прийшли під час reload, губилися. | Зберігати версію, з якою стався reload, у `storage.local` (`5c5e4b0`). |
-| Панель транскрипту показувалася на головній сторінці Meet (помітив користувач) | Панель рендерилася за збереженим прапорцем «відкрита» (`localStorage`), не зважаючи на те, чи триває дзвінок. | Видимість вимагає `Sidebar.inCall()` (сесія + кнопка «Leave call»), прапорець лишився вподобанням (`a22c0f2`). Перевірено в Chrome: головна, «Join now», дзвінок, «You left the meeting». |
-| Панель сама відкривалася після завантаження сторінки (помітив користувач) | Стан «відкрита» зберігався в `localStorage` Meet. | Стан не зберігається й скидається, коли завершується сесія (`b5bc5fa`). |
-| Панель зʼявлялася без виїзду, по висоті не збігалася з чатом Meet і заходила на панель реакцій (помітив користувач) | Анімація була 200 мс fade + 24 px. Низ рахувався від кнопки «Leave call» + 16 і не зважав на панель реакцій. | Виїзд як у `ASIDE.R3Gmyc`. Межі беруться з inline-стилів слота й `<main>`. `MutationObserver` синхронізує рух із Meet (`e12027c`). |
-| Масштаб сцени відставав на ~1 с, коли відкривався чат Meet | `offsetWidth` сцени на початку анімації Meet ще старий. Наше правило `transition` для `<main>` перебивалося правилом Meet, тож `transform` узагалі не анімувався. | `MT.dom.stageSize()` бере цільові inline-відступи. `transition … !important` у `page.css` (`e12027c`). |
-| Після виходу з дзвінка мітинг досі «записувався», а файл не зберігся (помітив користувач) | Розширення перезавантажилося посеред дзвінка (зміна версії під час dev-reload). Контент-скрипт у вкладці «осиротів»: без `chrome.runtime` він не міг ні зберігати, ні надіслати `session:end`, але червона крапка лишалася. `storage.session` із привʼязками вкладок очистився, тож і SW не міг завершити мітинг. Відтворено в реальному Meet (`swu-kxdc-wpb`). | SW на `onInstalled` вставляє скрипти у відкриті вкладки Meet, і новий екземпляр перехоплює дзвінок (`6f3879e`). `sweep()` завершує загублені мітинги (`18ce5b8`) і так урятував мітинг користувача `cnb-pxty-hzz`. |
-| Leave → швидкий перехід на головну Meet залишав мітинг відкритим назавжди | `tab:hello` нової сторінки скасовував заплановане завершення, навіть коли це вже не дзвінок. | Завершення скасовує лише `session:start`, а `tab:hello` з іншим кодом одразу завершує мітинг (`8e04e70`). |
-| Після перехоплення історія на екрані дублювалася б | Новий `TranscriptBuilder` бачить наявні блоки субтитрів як нові DOM-вузли. | `load()` робить завантажені блоки доступними для адопції й відновлює власне імʼя (`6f3879e`). |
-| В архіві накопичувалися порожні мітинги | Вхід у дзвінок без мовлення створював запис. | Порожні мітинги видаляються під час завершення (`6b45738`). |
-| У harness: `insertAdjacentHTML` на `ShadowRoot`; пошук не фільтрував | `ShadowRoot` не має `insertAdjacentHTML`; після dispatch `e.target` ретаргетиться на shadow host. | Контейнер усередині shadow root; значення поля читається синхронно. |
-| У harness: адопція не спрацьовувала | Старий блок звільнявся після обробки нового в тому самому знімку. | Звільняти зниклі блоки на початку `update()`. |
+| Captions are hidden, but a black strip remains under the video and the video is not full-screen (noticed by the user) | Meet measures the captions overlay height **at the moment CC is turned on** and reserves it under the video (`inset … 352px` instead of `136px`). Any hiding after that changes nothing, and neither does a synthetic `resize`. | `page.css` collapses the container with the rule `.fJsklc:has([jsname="dsyhDe"])` before the measurement. Fallback: `remeasure()` (CC off/on) at most 2 times. Commit `70a504c`. |
+| CC was toggled off and on every 2 s | `spaceReserved()` measured `getBoundingClientRect()` of the stage, which we had shrunk ourselves with a `transform`, so it kept "seeing" a reservation. | Measure the layout box via `offsetTop/offsetHeight`; limit `reclaims ≤ 2`. |
+| The "Транскрипт" (Transcript) button ended up inside the chat button | The chat button holds two icons (`chat` + a hidden `chat_bubble`), and the algorithm took it for two "neighbors". | Look only for visible buttons that are horizontally apart. |
+| The chat button disappeared, and later our button disappeared too | Meet's control bar is responsive: a foreign node made Meet hide the chat (width 0), and the node was dropped when the group was rebuilt. | The button became a separate "pill" next to the group; Meet's DOM is not modified. |
+| The sidebar covered the video | Native panels shrink the stage through Meet's layout model; that is not accessible from outside. | Scale `<main>` via `data-mt-stage` and CSS variables. |
+| Meeting title "Meeting details" | Right after joining, `[jsname="NeC6gb"]` temporarily contained different text. | The title is taken from `document.title`; it auto-updates only when that changes and without overwriting renames. |
+| After an extension auto-reload the old code was running | The new SW took the current file hash as its baseline, so edits that arrived during the reload were lost. | Store the version the reload happened with in `storage.local` (`559b693`). |
+| The transcript panel was shown on the Meet home page (noticed by the user) | The panel was rendered from a saved "open" flag (`localStorage`), regardless of whether a call was in progress. | Visibility requires `Sidebar.inCall()` (session + the "Leave call" button); the flag remained a preference (`01ad2aa`). Verified in Chrome: home page, "Join now", call, "You left the meeting". |
+| The panel opened by itself after the page loaded (noticed by the user) | The "open" state was stored in Meet's `localStorage`. | The state is not persisted and is reset when the session ends (`3cc17f5`). |
+| The panel appeared without sliding in, did not match Meet's chat in height and overlapped the reactions bar (noticed by the user) | The animation was a 200 ms fade + 24 px. The bottom was computed from the "Leave call" button + 16 and ignored the reactions bar. | Slide in like `ASIDE.R3Gmyc`. The bounds come from the inline styles of the slot and `<main>`. A `MutationObserver` keeps the motion in sync with Meet (`40b94f1`). |
+| The stage scale lagged by ~1 s when Meet's chat opened | The stage's `offsetWidth` is still the old one at the start of Meet's animation. Our `transition` rule for `<main>` was overridden by Meet's rule, so the `transform` was not animated at all. | `MT.dom.stageSize()` takes the target inline insets. `transition … !important` in `page.css` (`40b94f1`). |
+| After leaving the call the meeting was still "recording", and the file was not saved (noticed by the user) | The extension reloaded mid-call (a version change during dev-reload). The content script in the tab was "orphaned": without `chrome.runtime` it could neither save nor send `session:end`, but the red dot stayed. `storage.session` with the tab links was cleared, so the SW could not end the meeting either. Reproduced in the real Meet (`swu-kxdc-wpb`). | On `onInstalled` the SW injects the scripts into open Meet tabs, and the new instance takes over the call (`658fbae`). `sweep()` ends lost meetings (`d4b6f94`) and that is how it rescued the user's meeting `cnb-pxty-hzz`. |
+| Leave → a quick move to the Meet home page left the meeting open forever | The new page's `tab:hello` cancelled the scheduled end even when it was no longer a call. | Only `session:start` cancels the end, and a `tab:hello` with another code ends the meeting at once (`7a2b984`). |
+| After a takeover the history on screen would be duplicated | The new `TranscriptBuilder` sees the existing caption blocks as new DOM nodes. | `load()` makes the loaded blocks available for adoption and restores the user's own name (`658fbae`). |
+| Empty meetings piled up in the archive | Joining a call without any speech created a record. | Empty meetings are deleted when they end (`3f21e12`). |
+| In the harness: `insertAdjacentHTML` on a `ShadowRoot`; search did not filter | `ShadowRoot` has no `insertAdjacentHTML`; after dispatch `e.target` is retargeted to the shadow host. | A container inside the shadow root; the field value is read synchronously. |
+| In the harness: adoption did not work | The old block was released after the new one had been processed in the same snapshot. | Release vanished blocks at the start of `update()`. |
 
-## Що перевірено наприкінці
+## What was verified at the end
 
-- **Юніт-тести:** 37/37.
-- **Harness:** стрім, ревізії, системні рядки, «You» → імʼя, перемальовування без дублів, CC, мова, оверлей, пошук, меню, завантаження, резюм, архів.
-- **Реальний Meet:**
-  - CC і українська вмикаються автоматично (зокрема з English);
-  - запис працює у фоновій вкладці;
-  - під приховані субтитри місце не резервується;
-  - сайдбар стискає відео;
-  - пігулка стоїть поруч із групою, а чат видно;
-  - оверлей вмикається й вимикається;
-  - сесія продовжується після перезавантаження сторінки;
-  - файл зберігається після «Leave call», а порожній мітинг файлу не дає;
-  - після оновлення розширення посеред дзвінка запис продовжується в тому самому записі без дублів, а файл після «Leave» містить фрази до й після оновлення. `sweep` зберіг загублений мітинг через хвилину після перезавантаження розширення;
-  - панель на старті закрита. Виїзд і заїзд займають 0.5 с, синхронно зі сценою. Прямокутник збігається з чатом Meet: поруч із ним панель зсувається до `right 392`, а без панелі реакцій опускається до `bottom 88`.
+- **Unit tests:** 37/37.
+- **Harness:** streaming, revisions, system lines, "You" → name, re-renders without duplicates, CC, language, overlay, search, menu, downloads, resume, archive.
+- **Real Meet:**
+  - CC and Ukrainian turn on automatically (including from English);
+  - recording works in a background tab;
+  - no space is reserved for the hidden captions;
+  - the sidebar shrinks the video;
+  - the pill sits next to the group, and the chat is visible;
+  - the overlay turns on and off;
+  - the session continues after a page reload;
+  - the file is saved after "Leave call", and an empty meeting produces no file;
+  - after an extension update mid-call, recording continues in the same record without duplicates, and the file after "Leave" contains the phrases from before and after the update. `sweep` saved a lost meeting a minute after the extension reload;
+  - the panel starts closed. Sliding in and out takes 0.5 s, in sync with the stage. The rectangle matches Meet's chat: next to it the panel shifts to `right 392`, and without the reactions bar it drops to `bottom 88`.
 
-## Відомі відкриті питання
+## Known open issues
 
-- Архів у справжньому розширенні не перевірено напряму: Claude in Chrome не відкриває `chrome-extension://`. Перевірено той самий код на `dev/archive.html`.
-- Мітинг із кількома учасниками в реальному Meet не тестувався, лише в harness.
-- Клас `.fJsklc` у правилі `:has()` обфускований. Коли він зміниться, спрацює запасний шлях через `remeasure()`: це коротке перевмикання CC, тож правило варто оновити (див. [dom-troubleshooting.md](dom-troubleshooting.md)).
-- Масштабування сцени під сайдбар зменшує й підписи на плитках. Рідні панелі Meet їх не зменшують.
+- The archive in the real extension was not verified directly: Claude in Chrome cannot open `chrome-extension://`. The same code was verified on `dev/archive.html`.
+- A meeting with several participants was not tested in the real Meet, only in the harness.
+- The `.fJsklc` class in the `:has()` rule is obfuscated. When it changes, the `remeasure()` fallback kicks in: that is a brief CC toggle, so the rule should be updated (see [dom-troubleshooting.md](dom-troubleshooting.md)).
+- Scaling the stage for the sidebar also shrinks the name labels on the tiles. Meet's native panels do not shrink them.

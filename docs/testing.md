@@ -1,45 +1,45 @@
-# Тестування
+# Testing
 
-Є три рівні: юніт-тести в node, harness у звичайному браузері без встановленого розширення і реальний дзвінок Google Meet через Claude in Chrome.
+There are three levels: unit tests in node, a harness in a regular browser without the extension installed, and a real Google Meet call through Claude in Chrome.
 
-## 1. Юніт-тести
+## 1. Unit tests
 
 ```bash
-npm test                                                         # усі
-node --test test/store.test.js                                   # один файл
-node --test --test-name-pattern="adopts" test/transcript.test.js # один тест за назвою
+npm test                                                         # all
+node --test test/store.test.js                                   # one file
+node --test --test-name-pattern="adopts" test/transcript.test.js # one test by name
 ```
 
-| Файл | Що покриває |
+| File | What it covers |
 | --- | --- |
-| `test/transcript.test.js` | `TranscriptBuilder`: ріст слово за словом, ревізії хвоста, нормалізація пробілів, кілька мовців, одночасне мовлення, абзаци за паузою, розріз без обрізання слів, суцільне мовлення, обрізання голови, адопція перемальованих блоків (зокрема історії з кількох блоків), відмова адоптувати старі блоки, системні рядки, «You» → імʼя, `liveId`, `load()` без колізій id, «немає змін» |
-| `test/store.test.js` | `store`: налаштування, створення й оновлення, резюм після перезавантаження та після Rejoin, новий мітинг після `RESUME_IDLE_MS`, ідемпотентний `end`, конкурентні записи без втрат індексу, видалення. `router`: `tab:bye` → `scheduleEnd`, `tabGone`, `tab:hello` з іншої сторінки одразу завершує мітинг, перезавантаження того самого дзвінка лишає завершення до `session:start`, `sweep()` (зникла вкладка, втрачена привʼязка + `STALE_MS`, `endedAt` = останнє оновлення, ідемпотентність) |
-| `test/format.test.js` | Markdown, TXT, JSON, імена файлів (санітизація, обрізання), тривалість незавершеного мітингу. Автозбереження лише для непорожніх мітингів і лише один раз; видалення порожніх; ручний експорт |
+| `test/transcript.test.js` | `TranscriptBuilder`: word-by-word growth, tail revisions, whitespace normalization, several speakers, simultaneous speech, paragraphs at pauses, splitting without cutting words, continuous speech, head truncation, adoption of re-rendered blocks (including history spanning several blocks), refusal to adopt old blocks, system lines, "You" → name, `liveId`, `load()` without id collisions, "no changes" |
+| `test/store.test.js` | `store`: settings, creation and updates, resume after a reload and after Rejoin, a new meeting after `RESUME_IDLE_MS`, idempotent `end`, concurrent writes without losing the index, deletion. `router`: `tab:bye` → `scheduleEnd`, `tabGone`, a `tab:hello` from another page ends the meeting at once, reloading the same call keeps the end pending until `session:start`, `sweep()` (vanished tab, lost link + `STALE_MS`, `endedAt` = last update, idempotency) |
+| `test/format.test.js` | Markdown, TXT, JSON, file names (sanitizing, truncation), duration of an unfinished meeting. Auto-save only for non-empty meetings and only once; deletion of empty ones; manual export |
 
-Тести імпортують ті самі файли, що й розширення: `shared/*.js` як side-effect-модулі, `background/*.js` як ES-модулі. Годинник у `TranscriptBuilder` і `createStore` підставляється через `now`.
+The tests import the same files as the extension: `shared/*.js` as side-effect modules, `background/*.js` as ES modules. The clock in `TranscriptBuilder` and `createStore` is injected via `now`.
 
-## 2. Harness (без встановлення розширення)
+## 2. Harness (without installing the extension)
 
 ```bash
 npm run dev
 ```
 
-- `http://localhost:8765/dev/harness.html?speed=4` — імітація Meet. Параметри:
-  - `speed=1..8` — швидкість сценарію;
-  - `cc=on` — субтитри ввімкнені одразу, інакше їх має ввімкнути розширення;
-  - `autoplay=0` — сценарій не стартує сам;
-  - `prejoin=1` — сторінка починається з екрана «Ready to join?» без контролів дзвінка; «Join now» відкриває дзвінок. Так перевіряється стан «поза дзвінком».
-- Панель «Harness» зліва вгорі:
-  - ▶/⏸ і швидкість;
-  - **re-render region** — клонує регіон, як це робить Meet; дублів бути не повинно;
-  - **leave call** — екран «You left the meeting»;
-  - **reset storage** — очищає сховище shim.
-- `http://localhost:8765/dev/archive.html` — архів на тому самому сховищі.
-- `http://localhost:8765/design/mockup.html` — усі стани сайдбару.
+- `http://localhost:8765/dev/harness.html?speed=4` — a Meet simulator. Parameters:
+  - `speed=1..8` — scenario speed;
+  - `cc=on` — captions are on from the start, otherwise the extension has to turn them on;
+  - `autoplay=0` — the scenario does not start by itself;
+  - `prejoin=1` — the page starts on a "Ready to join?" screen without call controls; "Join now" opens the call. This is how the "outside a call" state is tested.
+- The "Harness" panel at the top left:
+  - ▶/⏸ and speed;
+  - **re-render region** — clones the region the way Meet does; there must be no duplicates;
+  - **leave call** — the "You left the meeting" screen;
+  - **reset storage** — clears the shim storage.
+- `http://localhost:8765/dev/archive.html` — the archive on the same storage.
+- `http://localhost:8765/design/mockup.html` — every sidebar state.
 
-Harness підвантажує контент-скрипти зі списку `manifest.json`, `chrome.*` підмінено через `dev/chrome-shim.js`, а фон працює на справжньому `createRouter()`. Завантаження не зберігаються у файли, а потрапляють у `window.__downloads`.
+The harness loads the content scripts from the `manifest.json` list, `chrome.*` is replaced by `dev/chrome-shim.js`, and the background runs on the real `createRouter()`. Downloads are not saved to files; they go to `window.__downloads`.
 
-Корисні перевірки в консолі harness (тут `MT` доступний, бо все виконується в одному світі):
+Useful checks in the harness console (`MT` is available here because everything runs in a single world):
 
 ```js
 MT.session.builder.snapshot().map(e => `${e.speaker}: ${e.text}`)
@@ -47,59 +47,60 @@ MT.session.status; MT.session.language; MT.session.settings
 window.__downloads.map(d => d.filename)
 ```
 
-Обмеження harness:
-- у ньому немає `<main>`, тож стиснення сцени не перевіряється;
-- немає реальної поведінки Meet: резерву місця під субтитри, адаптивної панелі кнопок, rAF-рендера. Це перевіряється лише в реальному дзвінку.
+Harness limitations:
+- it has no `<main>`, so shrinking the stage is not tested;
+- it lacks Meet's real behavior: space reserved for captions, the responsive control bar, rAF rendering. These are tested only in a real call.
 
-## 3. Реальний E2E через Claude in Chrome
+## 3. Real E2E through Claude in Chrome
 
-Передумови:
-- розширення завантажене через Load unpacked;
-- запущено `npm run dev`, щоб правки підхоплювалися автоматично;
-- вкладка Meet **видима**;
-- звук іде з динаміків, а не в навушники.
+Prerequisites:
+- the extension is loaded via Load unpacked;
+- `npm run dev` is running so edits are picked up automatically;
+- the Meet tab is **visible**;
+- sound plays through the speakers, not headphones.
 
-1. Відкрийте `https://meet.google.com/new`. Порожній дзвінок створюється й відкривається одразу.
-2. Перевірте старт (сніпети з [dom-troubleshooting.md](dom-troubleshooting.md)):
-   - `#meet-transcriber-root` існує, `window.__meetTranscriberRaf === true`;
-   - CC увімкнені (лігатура `closed_caption`), мова «Ukrainian (Ukraine)»;
-   - `<main>` має `inset: 64px 16px 136px` — місце не зарезервоване.
-3. Згенеруйте мовлення:
+1. Open `https://meet.google.com/new`. An empty call is created and opened immediately.
+2. Check the startup (snippets from [dom-troubleshooting.md](dom-troubleshooting.md)):
+   - `#meet-transcriber-root` exists, `window.__meetTranscriberRaf === true`;
+   - CC is on (ligature `closed_caption`), language "Ukrainian (Ukraine)";
+   - `<main>` has `inset: 64px 16px 136px` — no space is reserved.
+3. Generate speech:
 
    ```bash
+   # "Good afternoon, colleagues. This is a test of the caption recording extension."
    say -v Lesya "Добрий день, колеги. Це перевірка розширення для запису субтитрів."
    ```
 
-4. Порівняйте текст у сайдбарі (shadow DOM, сніпет 7) з `.ygicle` у DOM Meet.
-5. Сценарії, які перевіряли 24.09.2026:
-   - **автомова**: вручну поставити English → Leave → Rejoin → Join now → мова сама стає українською;
-   - **фонова вкладка**: перейти в іншу вкладку, програти фразу → текст оновлюється (`document.hidden: true`);
-   - **оверлей**: увімкнути «Субтитри на екрані» → текст Meet видно; вимкнути → `inset` повертається до `136px`;
-   - **сайдбар**: відкрити → відео зсувається ліворуч, пігулка поруч із групою, чат видно; закрити → відео на весь екран;
-   - **перезавантаження сторінки посеред мітингу** → Join now → той самий запис продовжується;
-   - **Leave call** → файл у `~/Downloads/Meet Transcripts/`; порожній мітинг файлу не дає;
-   - **Leave → одразу «Return to home screen»** → файл однаково зберігається (`tab:hello` із `/home` завершує мітинг);
-   - **оновлення розширення посеред дзвінка** (`touch extension/content/main.js` при запущеному `npm run dev`):
-     - у консолі вкладки: `replaced by a newer content script`, потім `resumed <той самий id>`;
-     - `#meet-transcriber-root` один;
-     - фраза до оновлення є в панелі один раз, нові фрази дописуються;
-     - після «Leave» файл містить обидві фрази;
-   - **загублений мітинг** (відкритий без вкладки, наприклад з версії до 1.1.1) → щонайбільше через ~1–3 хв після перезавантаження розширення `sweep` зберігає його файл; кінець мітингу — час останнього оновлення.
-   - **видимість панелі**: головна `meet.google.com`, екран «Join now» і «You left the meeting» → `.mt-panel` має `hidden`, пігулки `.mt-cb-float` немає, `<html>` без `mt-panel-open`. У дзвінку одразу після входу є пігулка, а панель закрита (`.mt-panel` без `is-open`, `visibility: hidden`), навіть якщо до перезавантаження вона була відкрита.
-   - **виїзд як у чату Meet** (вкладка має бути видимою, у фоні анімації стоять). Семплуйте `getBoundingClientRect()` панелі та `<main>` кожні ~50 мс після кліку по пігулці. Очікуване:
-     - панель за ~0.5 с проходить x від `innerWidth` до `innerWidth − 376`, а ширина сцени зменшується синхронно;
-     - кінцевий прямокутник дорівнює прямокутнику `.R3Gmyc` із відкритим чатом (`940,64 360×695`, `right 16`, `bottom 136` при 1316×895);
-     - з відкритим чатом наша панель синхронно зсувається до `right 392`;
-     - без панелі реакцій (кнопка `mood`) низ стає 88 px;
-     - закриття виконує той самий рух у зворотний бік, після чого `visibility: hidden`.
+4. Compare the text in the sidebar (shadow DOM, snippet 7) with `.ygicle` in Meet's DOM.
+5. Scenarios tested on 24.09.2026:
+   - **auto language**: manually set English → Leave → Rejoin → Join now → the language switches to Ukrainian by itself;
+   - **background tab**: switch to another tab, play a phrase → the text updates (`document.hidden: true`);
+   - **overlay**: turn on "Субтитри на екрані" (Captions on screen) → Meet's text is visible; turn it off → `inset` returns to `136px`;
+   - **sidebar**: open → the video shifts left, the pill sits next to the group, the chat is visible; close → the video is full-screen;
+   - **page reload mid-meeting** → Join now → the same record continues;
+   - **Leave call** → a file in `~/Downloads/Meet Transcripts/`; an empty meeting produces no file;
+   - **Leave → immediately "Return to home screen"** → the file is saved all the same (`tab:hello` from `/home` ends the meeting);
+   - **extension update mid-call** (`touch extension/content/main.js` while `npm run dev` is running):
+     - in the tab console: `replaced by a newer content script`, then `resumed <the same id>`;
+     - there is one `#meet-transcriber-root`;
+     - the phrase from before the update appears in the panel once, new phrases are appended;
+     - after "Leave" the file contains both phrases;
+   - **lost meeting** (open without a tab, e.g. from a version before 1.1.1) → within ~1–3 min of the extension reload at most, `sweep` saves its file; the meeting's end is the time of its last update.
+   - **panel visibility**: the `meet.google.com` home page, the "Join now" screen and "You left the meeting" → `.mt-panel` has `hidden`, there is no `.mt-cb-float` pill, `<html>` has no `mt-panel-open`. In a call, right after joining, the pill is there and the panel is closed (`.mt-panel` without `is-open`, `visibility: hidden`), even if it was open before the reload.
+   - **sliding in like Meet's chat** (the tab must be visible; animations stall in the background). Sample `getBoundingClientRect()` of the panel and of `<main>` every ~50 ms after clicking the pill. Expected:
+     - within ~0.5 s the panel moves in x from `innerWidth` to `innerWidth − 376`, and the stage width shrinks in sync;
+     - the final rectangle equals the `.R3Gmyc` rectangle with the chat open (`940,64 360×695`, `right 16`, `bottom 136` at 1316×895);
+     - with the chat open, our panel shifts to `right 392` in sync;
+     - without the reactions bar (the `mood` button) the bottom becomes 88 px;
+     - closing performs the same motion in reverse, followed by `visibility: hidden`.
 
-### Пастки, на які ми натрапили
+### Pitfalls we ran into
 
-- **Скріншоти.** `computer screenshot` падає («Failed to capture screenshot via CDP»), коли вкладка у фоні. Попросіть користувача вивести вікно наперед.
-- **Таймери у фоні.** Chrome пригальмовує таймери (≈1/с), а для вкладок без звуку через 5 хв ще сильніше. Harness у фоновій вкладці майже «стоїть».
-- **Світ виконання.** `javascript_tool` працює в MAIN world: `MT` і `chrome.runtime` контент-скрипта там недоступні. Перевірка `chrome.runtime?.id` у MAIN world нічого не каже про стан розширення.
-- **Фільтр виводу.** Вивід, схожий на токени чи base64, замінюється на «[BLOCKED: …]». Не повертайте `outerHTML`, довгі класи й рядки з одних цифр.
-- **Сторінки розширення.** `chrome://extensions` і `chrome-extension://…` недоступні. Архів у справжньому розширенні відкривається кнопкою із сайдбару в новій вкладці поза групою Claude, тому перевіряйте його через `dev/archive.html` або просіть користувача.
-- **Навігація.** Після автоперезавантаження розширення вкладку Meet перезавантажувати не треба: SW сам вставляє новий скрипт. Виняток — вкладка, відкрита з кодом, старшим за 1.1.1: тоді старий і новий екземпляри існують разом (два `#meet-transcriber-root`), і вкладку треба перезавантажити. Довгий `await` у `javascript_tool`, який триває під час навігації (наприклад, клік «Rejoin»), падає з «Inspected target navigated».
-- **Зайнятий порт 8765.** Якщо на 8765 уже слухає інший процес, `npm run dev` падає. Для harness і макета підійде `PORT=8766 npm run dev`: сторінки працюють на будь-якому порту. Dev-reload розширення чекає саме 8765 (див. [parameters.md](parameters.md#dev-інструменти)).
-- **Розмір вікна.** `resize_window` змінює вікно, але не вʼюпорт вкладки, якщо на ній стоїть емуляція. Для тесту розкладки це не працює.
+- **Screenshots.** `computer screenshot` fails ("Failed to capture screenshot via CDP") when the tab is in the background. Ask the user to bring the window to the front.
+- **Background timers.** Chrome throttles timers (≈1/s), and even more for silent tabs after 5 min. The harness in a background tab nearly "stands still".
+- **Execution world.** `javascript_tool` runs in the MAIN world: the content script's `MT` and `chrome.runtime` are not available there. Checking `chrome.runtime?.id` in the MAIN world tells you nothing about the extension's state.
+- **Output filter.** Output that looks like tokens or base64 is replaced with "[BLOCKED: …]". Do not return `outerHTML`, long class lists or strings made only of digits.
+- **Extension pages.** `chrome://extensions` and `chrome-extension://…` are not accessible. In the real extension the archive is opened by a button in the sidebar in a new tab outside Claude's tab group, so test it through `dev/archive.html` or ask the user.
+- **Navigation.** After an extension auto-reload the Meet tab does not need to be reloaded: the SW injects the new script itself. The exception is a tab loaded with code older than 1.1.1: then the old and new instances coexist (two `#meet-transcriber-root`), and the tab must be reloaded. A long `await` in `javascript_tool` that is still running during a navigation (e.g. a click on "Rejoin") fails with "Inspected target navigated".
+- **Port 8765 in use.** If another process is already listening on 8765, `npm run dev` fails. For the harness and the mockup, `PORT=8766 npm run dev` works: the pages run on any port. The extension's dev-reload expects exactly 8765 (see [parameters.md](parameters.md#dev-tools)).
+- **Window size.** `resize_window` resizes the window but not the tab's viewport if emulation is active on it. This does not work for layout tests.

@@ -6,7 +6,8 @@ Meet Transcriber is a local-only Chrome MV3 extension that scrapes Google Meet's
 (Ukrainian) from the page DOM, stores transcripts with speaker names in `chrome.storage.local`, and shows
 them in a Meet-styled sidebar. There is no Meet API: everything depends on Meet's obfuscated DOM, so most
 maintenance is about keeping selectors and DOM assumptions current. The user communicates in Ukrainian;
-UI strings are Ukrainian (`extension/shared/strings.js`), code, comments and commit messages are English.
+UI strings are Ukrainian (`extension/shared/strings.js`); code, comments, documentation (`README.md`, `docs/`),
+release notes and commit messages are English.
 
 ## Commands
 

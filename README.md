@@ -1,69 +1,76 @@
 # Meet Transcriber
 
-Локальне Chrome-розширення для Google Meet. Воно зберігає субтитри мітингів (українською) разом з іменами мовців.
+A local Chrome extension for Google Meet. It saves meeting captions (in Ukrainian) together with speaker names.
 
-- Читає вбудовані субтитри Google Meet прямо зі сторінки. API і зовнішні сервери не потрібні, дані нікуди не надсилаються.
-- Показує транскрипт у сайдбарі, оформленому як рідні панелі Meet.
-- Рідний оверлей субтитрів приховано, і він не забирає місця у відео. Його можна ввімкнути перемикачем «Субтитри на екрані».
-- Під час входу в мітинг саме вмикає субтитри й перемикає мову розпізнавання на українську.
-- Зберігає все локально в `chrome.storage.local`. Є архів мітингів із пошуком і експорт у Markdown, TXT чи JSON.
-- Після завершення мітингу автоматично зберігає `.md` у `Завантаження/Meet Transcripts/`.
+- Reads Google Meet's built-in captions straight from the page. No API or external servers are needed, and no data leaves your computer.
+- Shows the transcript in a sidebar styled like Meet's own side panels.
+- Hides Meet's native captions overlay so it takes no space from the video. You can bring it back with the "Субтитри на екрані" (Captions on screen) toggle.
+- Turns captions on when you join a call and switches the recognition language to Ukrainian.
+- Stores everything locally in `chrome.storage.local`. Includes a searchable meeting archive and export to Markdown, TXT or JSON.
+- Saves a `.md` file to `Downloads/Meet Transcripts/` automatically when a meeting ends.
 
-## Встановлення
+The extension UI is in Ukrainian.
 
-1. Відкрийте `chrome://extensions`.
-2. Увімкніть **Developer mode** (справа вгорі).
-3. Натисніть **Load unpacked** і виберіть папку `extension/` цього репозиторію.
+## Installation
 
-Мінімальна версія — Chrome 116.
+1. Download **Source code (zip)** of the latest release from the [Releases](https://github.com/ddanilyuk/meet-transcriber/releases) page and unpack it into a permanent folder (or clone the repository).
+2. Open `chrome://extensions` and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and select the `extension/` folder.
 
-## Як користуватися
+Requires Chrome 116 or later. The full guide (first call, permissions, updates, troubleshooting) is in
+[docs/installation.md](docs/installation.md).
 
-1. Зайдіть у дзвінок Google Meet. Розширення саме ввімкне субтитри й поставить мову «Ukrainian (Ukraine)».
-2. Під час дзвінка праворуч унизу, поруч із кнопками Meet, зʼявиться кнопка **«Транскрипт»**. На головній сторінці Meet, на екрані «Join now» і після виходу ні кнопки, ні панелі немає. Червона крапка на ній означає, що йде запис. Запис іде й тоді, коли панель закрита. Сама панель на старті завжди закрита й відкривається лише цією кнопкою. Вона виїжджає справа, як рідний чат Meet, і стає на його місце, а якщо чат відкритий, то ліворуч від нього. У панелі є:
-   - живий транскрипт, згрупований за мовцями, з часом кожної репліки;
-   - пошук із підсвіткою;
-   - перемикач **«Субтитри на екрані»**, що показує рідні субтитри Meet;
-   - копіювання в Markdown, завантаження (.md / .txt / .json), архів і налаштування.
-3. Коли ви виходите з дзвінка, мітинг завершується й зберігається у файл. Те саме стається, якщо закрити вкладку або одразу перейти на головну Meet. Якщо розширення оновилося чи перезавантажилося посеред дзвінка, запис продовжується сам, сторінку перезавантажувати не треба. Мітинг, який ніхто вже не записує (наприклад, після перезапуску браузера), автоматично завершиться й збережеться за кілька хвилин.
-4. **Архів**: іконка розширення на панелі Chrome або кнопка в сайдбарі. Там є список мітингів за днями, повнотекстовий пошук, перейменування, експорт і видалення.
+## Usage
 
-Налаштування (⚙ у сайдбарі або в архіві):
+1. Join a Google Meet call. The extension turns captions on and sets the language to "Ukrainian (Ukraine)".
+2. During the call a **"Транскрипт"** (Transcript) button appears at the bottom right, next to Meet's controls. There is no button or panel on the Meet home page, on the "Join now" screen or after you leave. A red dot on the button means recording is on. Recording continues while the panel is closed. The panel always starts closed and opens only from this button. It slides in from the right like Meet's own chat and takes its place, or sits to the left of the chat if the chat is open. The panel has:
+   - a live transcript grouped by speaker, with a timestamp for every line;
+   - search with highlighting;
+   - the **"Субтитри на екрані"** (Captions on screen) toggle that shows Meet's native captions;
+   - copy as Markdown, download (.md / .txt / .json), the archive and settings.
+3. When you leave the call, the meeting ends and is saved to a file. The same happens if you close the tab or go straight to the Meet home page. If the extension is updated or reloaded mid-call, recording continues on its own and you don't need to reload the page. A meeting that nothing records any more (for example after a browser restart) is ended and saved automatically within a few minutes.
+4. **Archive**: the extension icon in the Chrome toolbar or the button in the sidebar. It lists meetings by day and supports full-text search, renaming, export and deletion.
 
-| Налаштування | За замовчуванням |
+Settings (⚙ in the sidebar or in the archive):
+
+| Setting | Default |
 | --- | --- |
-| Автоматично вмикати субтитри | так |
-| Ставити українську мову | так |
-| Зберігати файл після мітингу | так |
-| Субтитри на екрані | ні |
+| Автоматично вмикати субтитри (Turn captions on automatically) | on |
+| Ставити українську мову (Set Ukrainian language) | on |
+| Зберігати файл після мітингу (Save a file after the meeting) | on |
+| Субтитри на екрані (Captions on screen) | off |
 
-## Як це працює
+## How it works
 
-- `content/page-raf.js` запускається в MAIN world. Chrome зупиняє `requestAnimationFrame` у фонових вкладках, і тоді Meet перестає оновлювати субтитри в DOM. Скрипт перенаправляє rAF на таймери, тому запис триває, навіть коли ви в іншій вкладці.
-- `content/caption-tracker.js` стежить за регіоном субтитрів через `MutationObserver`. `shared/transcript.js` зводить потік правок Meet у стабільні репліки: дописування слів, виправлення хвоста, паузи, обрізання довгих блоків і перемальовування регіону.
-- `content/page.css` згортає оверлей субтитрів ще до того, як Meet його виміряє. Так Meet не резервує під нього місце.
-- `background/` — service worker, єдиний, хто пише в сховище. Він також веде вкладки мітингів і завантаження.
-- Усі селектори DOM Meet зібрано в `content/selectors.js`, з фолбеками. Нотатки живої розвідки — у [docs/meet-dom.md](docs/meet-dom.md).
+- `content/page-raf.js` runs in the MAIN world. Chrome pauses `requestAnimationFrame` in background tabs, and then Meet stops updating captions in the DOM. The script routes rAF to timers, so recording continues while you are in another tab.
+- `content/caption-tracker.js` watches the captions region with a `MutationObserver`. `shared/transcript.js` turns Meet's stream of edits into stable lines: appended words, tail corrections, pauses, truncated long blocks and region re-renders.
+- `content/page.css` collapses the captions overlay before Meet measures it, so Meet doesn't reserve space for it.
+- `background/` is the service worker, the only writer to storage. It also tracks meeting tabs and downloads.
+- All Meet DOM selectors live in `content/selectors.js`, with fallbacks. Notes from the live DOM recon are in [docs/meet-dom.md](docs/meet-dom.md).
 
-Уся документація — у [docs/](docs/README.md): архітектура, параметри, ранбук на випадок змін DOM Meet, тестування, дизайн і журнал розробки.
+All documentation is in [docs/](docs/README.md): architecture, parameters, a runbook for Meet DOM changes, testing, design and the development log.
 
-## Розробка
+## Development
 
 ```bash
-npm test          # юніт-тести (node:test, без залежностей)
-npm run dev       # dev-сервер на http://localhost:8765
-npm run icons     # перегенерувати іконки
+npm test          # unit tests (node:test, no dependencies)
+npm run dev       # dev server on http://localhost:8765
+npm run icons     # regenerate the icons
 ```
 
-Поки працює `npm run dev`:
-- розпаковане розширення саме перезавантажується, щойно змінюються файли в `extension/`, і вставляє новий код у відкриті вкладки Meet;
-- `http://localhost:8765/dev/harness.html` — імітація Meet із DOM-структурою 1:1 і стрімом українських субтитрів. Параметри: `?speed=4`, `?cc=on`, `?autoplay=0`, `?prejoin=1` (почати з екрана «Ready to join?»);
-- `http://localhost:8765/dev/archive.html` — архів зі спільним з harness сховищем;
-- `http://localhost:8765/design/mockup.html` — макет сайдбару в усіх станах.
+While `npm run dev` is running:
+- the unpacked extension reloads itself as soon as files under `extension/` change, and injects the new code into open Meet tabs;
+- `http://localhost:8765/dev/harness.html` is a Meet simulator with a 1:1 DOM structure and a stream of Ukrainian captions. Parameters: `?speed=4`, `?cc=on`, `?autoplay=0`, `?prejoin=1` (start on the "Ready to join?" screen);
+- `http://localhost:8765/dev/archive.html` is the archive on the same storage as the harness;
+- `http://localhost:8765/design/mockup.html` is a mockup of the sidebar in every state.
 
-## Обмеження
+## Limitations
 
-- Субтитри Meet містять лише те, що розпізнав Google. Українська там позначена як BETA, і пунктуації немає.
-- Класи DOM Meet обфусковані й змінюються. Якщо субтитри перестануть знаходитися, сайдбар покаже попередження. Виправлення, найімовірніше, знадобиться лише в `content/selectors.js`.
-- Якщо в Chrome увімкнено «Запитувати, куди зберігати файли», автозбереження відкриватиме діалог.
-- У фоновій вкладці без звуку (наприклад, ви в дзвінку самі) Chrome пригальмовує таймери. Тоді субтитри надходять рідше, пачками, і паузи між репліками визначаються менш точно.
+- Meet captions contain only what Google recognized. Ukrainian is marked BETA there and has no punctuation.
+- Meet's DOM classes are obfuscated and change over time. If captions can no longer be found, the sidebar shows a warning. The fix will most likely be needed only in `content/selectors.js`.
+- If Chrome's "Ask where to save each file before downloading" is on, the automatic save opens a dialog.
+- In a muted background tab (for example when you are alone in the call) Chrome throttles timers. Captions then arrive less often, in batches, and pauses between lines are detected less precisely.
+
+## License
+
+[MIT](LICENSE).

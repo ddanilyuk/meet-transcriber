@@ -1,105 +1,105 @@
-# Параметри
+# Parameters
 
-Усі числові пороги й таймінги розширення, де вони задані і що буде, якщо їх змінити. Значення підібрано під поведінку Meet, яку ми виміряли 24.09.2026 (див. [meet-dom.md](meet-dom.md)). Якщо міняєте щось у `shared/transcript.js`, спершу запустіть `npm test`: майже кожен поріг там покритий тестом.
+All numeric thresholds and timings of the extension, where they are defined and what happens if you change them. The values are tuned to Meet's behavior as measured on 24.09.2026 (see [meet-dom.md](meet-dom.md)). If you change anything in `shared/transcript.js`, run `npm test` first: almost every threshold there is covered by a test.
 
-## Налаштування користувача
+## User settings
 
-Зберігаються в `chrome.storage.local` → `settings`. Значення за замовчуванням задані двічі, і їх треба тримати однаковими: `DEFAULT_SETTINGS` у `background/store.js` та в `content/session.js`.
+Stored in `chrome.storage.local` → `settings`. The defaults are defined twice and must be kept identical: `DEFAULT_SETTINGS` in `background/store.js` and in `content/session.js`.
 
-| Ключ | За замовч. | Що робить |
+| Key | Default | What it does |
 | --- | --- | --- |
-| `autoCaptions` | `true` | Вмикає CC під час входу в дзвінок. Якщо CC вимкнули, робить до 3 спроб за сесію увімкнути знову. |
-| `autoUkrainian` | `true` | Один раз за сесію, коли зʼявився регіон субтитрів, обирає `uk-UA` у combobox «Meeting language». |
-| `showOverlay` | `false` | Показує рідний оверлей субтитрів Meet. Коли значення `false`, оверлей згорнутий (`html.mt-hide-captions`). |
-| `autoDownload` | `true` | Після завершення мітингу з репліками зберігає `.md` у `Downloads/Meet Transcripts/`. |
+| `autoCaptions` | `true` | Turns CC on when joining a call. If CC gets turned off, makes up to 3 attempts per session to turn it back on. |
+| `autoUkrainian` | `true` | Once per session, when the captions region appears, selects `uk-UA` in the "Meeting language" combobox. |
+| `showOverlay` | `false` | Shows Meet's native captions overlay. When the value is `false`, the overlay is collapsed (`html.mt-hide-captions`). |
+| `autoDownload` | `true` | After a meeting with utterances ends, saves a `.md` file to `Downloads/Meet Transcripts/`. |
 
-Стан «панель відкрита» не зберігається. Панель відкривається лише кнопкою, а на кожному завантаженні сторінки й новому дзвінку вона закрита. Ключ `meetTranscriber:panelOpen` у `localStorage` Meet лишився від версій до 1.0.0 і більше не читається.
+The "panel open" state is not persisted. The panel opens only from the button and is closed on every page load and every new call. The `meetTranscriber:panelOpen` key in Meet's `localStorage` is left over from versions before 1.0.0 and is no longer read.
 
-## Злиття субтитрів — `extension/shared/transcript.js` (`DEFAULTS`)
+## Caption merging — `extension/shared/transcript.js` (`DEFAULTS`)
 
-| Параметр | Значення | Сенс | Якщо зменшити / збільшити |
+| Parameter | Value | Meaning | If decreased / increased |
 | --- | --- | --- | --- |
-| `pauseMs` | 4000 | Скільки триває тиша, після якої новий текст у тому самому блоці Meet стає новим абзацом (entry) з новою часовою міткою. Від нього ж залежить, скільки entry лишається «живим». | Менше: більше дрібних абзаців, частіше підсвічується «зараз». Більше: довгі абзаци й неточний час початку. |
-| `anchorLen` | 24 | Довжина фрагмента, за яким шукається продовження блоку після обрізання голови й збіг під час адопції. | Менше: вищий ризик хибного збігу. Більше: обрізання, що зсунулося менш ніж на 24 символи, не розпізнається. |
-| `minAnchor` | 12 | Мінімальний збіг, щоб вважати два тексти одним блоком. | Менше: хибні злиття. Більше: пропущені злиття, тобто дублі. |
-| `adoptWindowMs` | 15000 | Скільки часу блок, що зник із DOM, може бути «усиновлений» перемальованим блоком з тим самим текстом. | Менше: дублі історії, якщо Meet перемальовує повільно. Більше: нова репліка з таким самим початком («Так, …») може приклеїтися до старої. |
-| евристика обрізання | `prev > 80` символів, `cur < 0.8·prev`, спільний префікс `< minAnchor` | Умова, за якою вважається, що Meet відрізав голову блоку. | Надто мʼяка умова плутає звичайну ревізію з обрізанням. |
-| `selfLabels` | `you`, `ви`, `вы` | Мітки власного мовлення, які замінюються на ваше імʼя з плитки self-view. | Для нової мови UI Meet додайте її мітку сюди. |
+| `pauseMs` | 4000 | How long a silence lasts before new text in the same Meet block becomes a new paragraph (entry) with a new timestamp. It also determines how long an entry stays "live". | Lower: more small paragraphs, the "now" highlight shows up more often. Higher: long paragraphs and an inaccurate start time. |
+| `anchorLen` | 24 | Length of the fragment used to find the continuation of a block after head truncation and to match during adoption. | Lower: higher risk of a false match. Higher: a truncation that shifted by fewer than 24 characters is not recognized. |
+| `minAnchor` | 12 | Minimum overlap for two texts to be considered the same block. | Lower: false merges. Higher: missed merges, i.e. duplicates. |
+| `adoptWindowMs` | 15000 | How long a block that disappeared from the DOM can be "adopted" by a re-rendered block with the same text. | Lower: duplicated history if Meet re-renders slowly. Higher: a new utterance with the same beginning ("Так, …", "Yes, …") can get glued to the old one. |
+| truncation heuristic | `prev > 80` characters, `cur < 0.8·prev`, common prefix `< minAnchor` | The condition under which Meet is considered to have cut off the head of a block. | A condition that is too loose confuses an ordinary revision with truncation. |
+| `selfLabels` | `you`, `ви`, `вы` | Labels of your own speech that are replaced with your name from the self-view tile. | For a new Meet UI language, add its label here. |
 
-## Трекер субтитрів — `content/caption-tracker.js`
+## Caption tracker — `content/caption-tracker.js`
 
-| Параметр | Значення | Сенс |
+| Parameter | Value | Meaning |
 | --- | --- | --- |
-| `throttleMs` | 150 | Затримка скану після пачки мутацій. Meet оновлює текст приблизно кожні 330 мс. |
-| `checkMs` | 1000 | Інтервал перевірки, чи Meet не замінив вузол регіону. Той самий тік завершує «живий» стан без мутацій. |
+| `throttleMs` | 150 | Scan delay after a batch of mutations. Meet updates the text roughly every 330 ms. |
+| `checkMs` | 1000 | Interval for checking whether Meet replaced the region node. The same tick ends the "live" state when there are no mutations. |
 
-## Сесія — `content/session.js`
+## Session — `content/session.js`
 
-| Параметр | Значення | Сенс |
+| Parameter | Value | Meaning |
 | --- | --- | --- |
-| `POLL_MS` | 1000 | Основний цикл: у дзвінку чи ні, стан CC, мова, імʼя, назва. |
-| `SAVE_DEBOUNCE_MS` | 1500 | Дебаунс відправки `session:update` у SW. Негайне збереження відбувається також на `pagehide` і на завершенні. |
-| `LEAVE_MISSES` | 3 | Скільки поспіль опитувань без кнопки `call_end` потрібно, щоб вважати, що користувач вийшов. Захищає від миттєвих перерендерів. |
-| `NOT_FOUND_MS` | 10000 | Скільки CC можуть бути увімкнені без знайденого регіону, перш ніж зʼявиться статус «Не вдається знайти субтитри». Це сигнал, що зламалися селектори. |
-| `ccAttempts` | до 3 | Скільки разів за сесію розширення повторно вмикає CC. |
-| `reclaims` | до 2 | Скільки разів за сесію розширення перевмикає CC, щоб Meet перевиміряв згорнутий оверлей. Це помітно для користувача, тому кількість обмежена. |
-| затримка `reclaimSpaceSoon` | 1500 / 600 мс | Після появи регіону або після вимкнення «Субтитри на екрані». |
+| `POLL_MS` | 1000 | Main loop: in a call or not, CC state, language, name, title. |
+| `SAVE_DEBOUNCE_MS` | 1500 | Debounce for sending `session:update` to the SW. An immediate save also happens on `pagehide` and on ending. |
+| `LEAVE_MISSES` | 3 | How many consecutive polls without the `call_end` button are needed to consider that the user has left. Protects against momentary re-renders. |
+| `NOT_FOUND_MS` | 10000 | How long CC can be on without a found region before the status "Не вдається знайти субтитри" (Can't find captions) appears. This is a sign that the selectors broke. |
+| `ccAttempts` | up to 3 | How many times per session the extension turns CC back on. |
+| `reclaims` | up to 2 | How many times per session the extension toggles CC off/on so that Meet re-measures the collapsed overlay. The user notices this, so the count is limited. |
+| `reclaimSpaceSoon` delay | 1500 / 600 ms | After the region appears or after "Субтитри на екрані" (Captions on screen) is turned off. |
 
-## Керування субтитрами — `content/captions-control.js`
+## Captions control — `content/captions-control.js`
 
-| Параметр | Значення | Сенс |
+| Parameter | Value | Meaning |
 | --- | --- | --- |
-| поріг `spaceReserved()` | 150 px | Відстань від нижнього краю сцени (`<main>`, layout-бокс через `offset*`) до кнопки «Leave call». Нормально це ~70 px, із резервом під субтитри ~280 px. |
-| тайм-аути `setUkrainian()` | 3000 / 2000 / 2000 мс | Очікування combobox, опції `uk-UA` і підтвердження, що мову змінено. |
-| тайм-аути `remeasure()` | 2000 + 300 + 3000 мс | Чекає, поки CC вимкнуться, робить паузу, чекає новий регіон. |
-| `mt-hide-captions` / `data-mt-caption-root` | — | Клас на `<html>` і атрибут, на які спирається `content/page.css`. |
+| `spaceReserved()` threshold | 150 px | Distance from the bottom edge of the stage (`<main>`, the layout box via `offset*`) to the "Leave call" button. Normally it is ~70 px, with space reserved for captions ~280 px. |
+| `setUkrainian()` timeouts | 3000 / 2000 / 2000 ms | Waiting for the combobox, for the `uk-UA` option and for confirmation that the language changed. |
+| `remeasure()` timeouts | 2000 + 300 + 3000 ms | Waits for CC to turn off, pauses, waits for the new region. |
+| `mt-hide-captions` / `data-mt-caption-root` | — | The class on `<html>` and the attribute that `content/page.css` relies on. |
 
-## Сайдбар — `content/sidebar/sidebar.js`, `sidebar.css`
+## Sidebar — `content/sidebar/sidebar.js`, `sidebar.css`
 
-| Параметр | Значення | Сенс |
+| Parameter | Value | Meaning |
 | --- | --- | --- |
-| `--mt-top` / `--mt-bottom` | зазвичай 64 / 136 px (88 без панелі реакцій) | `MT.dom.sidePanelBox()`: inline `top`/`bottom` слота рідних панелей + його padding. Фолбеки: inline-відступи `<main>`, потім `innerHeight − top(Leave) + 16` (або 96). |
-| `--mt-right` | 16 px; 392 px, коли відкрита рідна панель | Правий inline-відступ `<main>` (цільове значення Meet). Фолбек — прямокутник `.R3Gmyc`. |
-| `--mt-width` | 360 px | Ширина рідної панелі Meet. |
-| `--mt-slide` | `500ms cubic-bezier(0.4, 0, 0.2, 1)` | Виїзд панелі й переходи `top/right/bottom`. Це значення з `ASIDE.R3Gmyc` і `<main>` Meet. Такий самий перехід для `transform` сцени задано в `page.css`. |
-| масштаб сцени | `(w − 360 − 16) / w`, мінімум 0.4 | Стискає `<main>` Meet ліворуч від панелі. `w`/`h` беруться з `MT.dom.stageSize()`: контейнер мінус inline-відступи, тобто цільовий розмір, навіть поки Meet анімує. `translateY` центрує результат. |
-| `PILL` / `GAP` | 56 / 8 px | Кнопка-пігулка ліворуч від правої групи кнопок Meet. Якщо до центральної групи лишається менше 12 px, пігулка переїжджає над групою. |
-| `AT_BOTTOM_PX` | 48 | Поріг «користувач внизу списку». Нижче автоскрол, вище пілюля «Нові репліки». |
-| дебаунс пошуку | 80 мс | |
-| снекбар | 3000 мс | |
+| `--mt-top` / `--mt-bottom` | usually 64 / 136 px (88 without the reactions bar) | `MT.dom.sidePanelBox()`: inline `top`/`bottom` of the native panel slot + its padding. Fallbacks: the inline insets of `<main>`, then `innerHeight − top(Leave) + 16` (or 96). |
+| `--mt-right` | 16 px; 392 px while a native panel is open | The right inline inset of `<main>` (Meet's target value). Fallback: the rectangle of `.R3Gmyc`. |
+| `--mt-width` | 360 px | Width of Meet's native panel. |
+| `--mt-slide` | `500ms cubic-bezier(0.4, 0, 0.2, 1)` | The panel slide-in and the `top/right/bottom` transitions. This is the value from Meet's `ASIDE.R3Gmyc` and `<main>`. The same transition for the stage `transform` is set in `page.css`. |
+| stage scale | `(w − 360 − 16) / w`, minimum 0.4 | Shrinks Meet's `<main>` to the left of the panel. `w`/`h` come from `MT.dom.stageSize()`: the container minus the inline insets, i.e. the target size, even while Meet is animating. `translateY` centers the result. |
+| `PILL` / `GAP` | 56 / 8 px | The pill button to the left of Meet's right button group. If less than 12 px is left before the center group, the pill moves above the group. |
+| `AT_BOTTOM_PX` | 48 | Threshold for "the user is at the bottom of the list". Below it: auto-scroll; above it: the "Нові репліки" (New utterances) pill. |
+| search debounce | 80 ms | |
+| snackbar | 3000 ms | |
 
-## Сховище й фон — `background/store.js`, `background/sw.js`
+## Storage and background — `background/store.js`, `background/sw.js`
 
-| Параметр | Значення | Сенс |
+| Parameter | Value | Meaning |
 | --- | --- | --- |
-| `RESUME_IDLE_MS` | 10 хв | Після перезавантаження сторінки або повторного входу з тим самим кодом мітинг продовжується в тому самому записі, якщо останнє оновлення було не давніше за цей час. |
-| `RESUME_AFTER_END_MS` | 5 хв | …і якщо мітинг завершили не давніше за цей час (випадковий вихід і Rejoin). |
-| `END_GRACE_MIN` | 1.5 хв | Alarm після `tab:bye`. Якщо за цей час у вкладці не повернулися в той самий дзвінок (`session:start`), мітинг завершується й зберігається. |
-| `STALE_MS` (`router.js`) | 2 хв | Відкритий мітинг без привʼязки до вкладки й без оновлень довше за цей час `sweep()` вважає завершеним. Цього часу вистачає, щоб перевставлений скрипт знову привʼязав живий дзвінок. |
-| `SWEEP_PERIOD_MIN` (`sw.js`) | 1 хв | Період alarm `sweep`. Alarm створюється на `onInstalled` і `onStartup`, а на `onStartup` одразу запускається й сам `sweep()`. |
-| порожні мітинги | — | Мітинг без реплік видаляється під час завершення, файл для нього не створюється. |
-| імʼя файлу | `Meet Transcripts/YYYY-MM-DD HH-mm <назва>.<ext>` | Назва обрізається до 80 символів, символи `<>:"/\|?*` і керівні символи замінюються. `conflictAction: uniquify`. |
+| `RESUME_IDLE_MS` | 10 min | After a page reload or rejoining with the same code, the meeting continues in the same record if the last update was no longer ago than this. |
+| `RESUME_AFTER_END_MS` | 5 min | …and if the meeting ended no longer ago than this (an accidental leave and Rejoin). |
+| `END_GRACE_MIN` | 1.5 min | Alarm after `tab:bye`. If the tab has not returned to the same call (`session:start`) within this time, the meeting ends and is saved. |
+| `STALE_MS` (`router.js`) | 2 min | An open meeting with no tab link and no updates for longer than this is considered ended by `sweep()`. This is enough time for a reinjected script to link a live call again. |
+| `SWEEP_PERIOD_MIN` (`sw.js`) | 1 min | Period of the `sweep` alarm. The alarm is created on `onInstalled` and `onStartup`, and on `onStartup` `sweep()` itself also runs immediately. |
+| empty meetings | — | A meeting without utterances is deleted when it ends; no file is created for it. |
+| file name | `Meet Transcripts/YYYY-MM-DD HH-mm <title>.<ext>` | The title is truncated to 80 characters, the characters `<>:"/\|?*` and control characters are replaced. `conflictAction: uniquify`. |
 
-## Dev-інструменти
+## Dev tools
 
-| Параметр | Де | Значення |
+| Parameter | Where | Value |
 | --- | --- | --- |
-| порт dev-сервера | `dev/server.mjs` (`PORT`), `background/dev-reload.js`, `host_permissions` у manifest | 8765. Якщо міняєте, міняйте в усіх трьох місцях. |
-| пінг dev-reload | `content/main.js` | 2000 мс, лише коли `installType === 'development'` і сервер відповідає |
-| тайм-аут `/__version` | `background/dev-reload.js` | 800 мс |
-| `__devLoadedVersion` | `chrome.storage.local` | Версія, з якою розширення перезавантажилося востаннє (захист від гонки). |
-| `WORD_MS` | `dev/meet-sim.js` | 330 мс на слово, ділиться на `?speed=` |
-| таймер rAF-фолбеку | `content/page-raf.js` | 16 мс. У фоні Chrome усе одно обмежує таймери до ~1/с, а для вкладок без звуку після 5 хв до ~1/хв. |
+| dev server port | `dev/server.mjs` (`PORT`), `background/dev-reload.js`, `host_permissions` in the manifest | 8765. If you change it, change it in all three places. |
+| dev-reload ping | `content/main.js` | 2000 ms, only when `installType === 'development'` and the server responds |
+| `/__version` timeout | `background/dev-reload.js` | 800 ms |
+| `__devLoadedVersion` | `chrome.storage.local` | The version the extension last reloaded with (protection against a race). |
+| `WORD_MS` | `dev/meet-sim.js` | 330 ms per word, divided by `?speed=` |
+| rAF fallback timer | `content/page-raf.js` | 16 ms. In the background Chrome still throttles timers to ~1/s, and for silent tabs after 5 min to ~1/min. |
 
-## Дозволи manifest
+## Manifest permissions
 
-| Дозвіл | Навіщо |
+| Permission | Why |
 | --- | --- |
-| `storage`, `unlimitedStorage` | Транскрипти в `chrome.storage.local` без ліміту 10 МБ. |
-| `downloads` | Автозбереження й експорт у папку `Meet Transcripts/`. |
-| `alarms` | Завершення мітингу, якщо вкладку перезавантажили або з неї пішли без «Leave call», і щохвилинний `sweep`. |
-| `scripting` | Після встановлення, перезавантаження чи оновлення розширення вставляє контент-скрипти у вже відкриті вкладки Meet, щоб дзвінок записувався далі. |
-| `host_permissions: https://meet.google.com/*` | Для `scripting` і для `tabs.query({ url })` по вкладках Meet. Нових попереджень немає: контент-скрипти вже мають доступ до цього сайту. |
-| `host_permissions: http://localhost:8765/*` | Лише для dev-reload. |
+| `storage`, `unlimitedStorage` | Transcripts in `chrome.storage.local` without the 10 MB limit. |
+| `downloads` | Auto-save and export to the `Meet Transcripts/` folder. |
+| `alarms` | Ending a meeting if the tab was reloaded or navigated away without "Leave call", and the per-minute `sweep`. |
+| `scripting` | After the extension is installed, reloaded or updated, injects the content scripts into already open Meet tabs so the call keeps being recorded. |
+| `host_permissions: https://meet.google.com/*` | For `scripting` and for `tabs.query({ url })` over Meet tabs. No new warnings: the content scripts already have access to this site. |
+| `host_permissions: http://localhost:8765/*` | Only for dev-reload. |
 
-Дозволу `tabs` немає свідомо: SW бачить URL лише вкладок Meet, а не всіх. Звідси механізм `tab:hello` / `tab:bye`.
+There is deliberately no `tabs` permission: the SW sees the URLs of Meet tabs only, not of all tabs. Hence the `tab:hello` / `tab:bye` mechanism.

@@ -1,55 +1,55 @@
-# Коли Google Meet змінив DOM: ранбук
+# When Google Meet changes its DOM: a runbook
 
-Розширення не має API і повністю залежить від DOM Meet. Класи там обфусковані (`nMcdL`, `fJsklc`, …) і змінюються між релізами. Цей документ описує, як швидко знайти, що саме зламалося, і полагодити, не зламавши решту.
+The extension has no API and depends entirely on Meet's DOM. The classes there are obfuscated (`nMcdL`, `fJsklc`, …) and change between releases. This document describes how to quickly find what exactly broke and fix it without breaking anything else.
 
-Усі хуки Meet зібрані в одному місці, `extension/content/selectors.js`. Код читає їх лише через `extension/content/meet-dom.js`. Поведінкові знахідки (що Meet міряє, коли перемальовує тощо) записано в [meet-dom.md](meet-dom.md).
+All Meet hooks are collected in one place, `extension/content/selectors.js`. The code reads them only through `extension/content/meet-dom.js`. Behavioral findings (what Meet measures, when it re-renders, etc.) are recorded in [meet-dom.md](meet-dom.md).
 
-## 1. Симптом → ймовірна причина → де лагодити
+## 1. Symptom → likely cause → where to fix
 
-| Симптом | Ймовірна причина | Де дивитися |
+| Symptom | Likely cause | Where to look |
 | --- | --- | --- |
-| Статус «Не вдається знайти субтитри» (`notfound`), CC увімкнені | Не знаходиться регіон субтитрів | `sel.captionsRegion`, `dom.findRegion()` |
-| Статус «Запис», але репліки не зʼявляються | Змінилися блоки, мовець або текст | `sel.captionBlock`, `captionSpeaker`, `captionText`, `dom.parseBlocks()` |
-| Замість імені мовця порожньо, або записуються системні рядки («… joined») | Селектор мовця збігається з рядком-повідомленням або не збігається з реальним мовцем | `sel.captionSpeaker`. Рядки без мовця свідомо відкидаються в `TranscriptBuilder.update()` |
-| Власні репліки підписані «Ви», а не вашим імʼям | Не знайдено плитку self-view або імʼя на ній | `sel.selfTileIcons`, `sel.tileName`, `dom.selfName()` |
-| Після демонстрації екрана чи зміни розкладки історія дублюється | Meet перемалював регіон і текст блоку змінився | `adopt()` та `adoptWindowMs` у `shared/transcript.js` |
-| CC не вмикаються автоматично | Змінилися лігатури або `jsname` кнопки CC | `MT.ligature.ccOff/ccOn`, `sel.ccButtonJsname`, `dom.captionsState()` |
-| Мова не перемикається на українську, зʼявляється банер | Не знаходиться combobox мови або опція | `dom.languageCombobox()` (шукає іконку `language`), `sel.languageOptionUk` |
-| Субтитри видно, хоча «Субтитри на екрані» вимкнено | CSS не знаходить корінь оверлея | `content/page.css`, `sel.captionRoot`, `captions.markRoot()` |
-| Під відео чорна смуга, відео не на весь екран | Meet зарезервував місце під субтитри: `:has()`-правило не спрацювало раніше за замір | `content/page.css`, `captions.spaceReserved()`, `session.reclaimSpaceSoon()` |
-| Кнопки «Транскрипт» немає, або вона не там | Не знаходиться права група кнопок | `sel.panelIcons`, `dom.controlBarAnchor()`, `Sidebar.positionButton()` |
-| Сайдбар перекриває рідну панель Meet (чат, люди), не збігається з нею по висоті або заходить на панель реакцій | Не знаходиться слот рідних панелей, або Meet перестав писати цільові відступи inline | `sel.nativePanel`, `dom.sidePanelSlot()`, `dom.sidePanelBox()` (порівняйте з `main.style.inset` і `style` батька `.R3Gmyc`) |
-| Сайдбар зʼявляється без виїзду, або відео звужується не синхронно з ним | Meet змінив тривалість чи криву анімації панелей, або правило для `<main>` перебило наш `transition` | `--mt-slide` у `sidebar.css`, `[data-mt-stage]` у `page.css`; порівняйте з `getComputedStyle(.R3Gmyc).transition` |
-| Відео не зсувається, коли сайдбар відкритий | Не знаходиться сцена | `dom.stage()` (шукає `[data-participant-id]` → `closest('main')`) |
-| Мітинг не завершується, файл не зберігається | Не розпізнається кнопка виходу | `MT.ligature.callEnd`, `sel.leaveButtonJsname`, `dom.isInCall()` |
-| Неправильна назва мітингу | Змінився формат `document.title` | `dom.meetingTitle()`, `sel.meetingTitle` |
-| У фоновій вкладці субтитри «застигають» і приходять пачкою, коли вкладку відкриваєш | Meet рендерить уже не через rAF, або захопив rAF до нашого патча | `content/page-raf.js` (див. сніпет 8) |
-| CC самі вимикаються й вмикаються | Цикл `remeasure()`: `spaceReserved()` хибно спрацьовує | Має міряти layout-бокс (`offset*`), а не `getBoundingClientRect()` |
+| Status "Не вдається знайти субтитри" (Can't find captions) (`notfound`) while CC is on | The captions region is not found | `sel.captionsRegion`, `dom.findRegion()` |
+| Status "Запис" (Recording), but no utterances appear | Blocks, speaker or text markup changed | `sel.captionBlock`, `captionSpeaker`, `captionText`, `dom.parseBlocks()` |
+| The speaker name is empty, or system lines ("… joined") get recorded | The speaker selector matches a notification line or does not match the real speaker | `sel.captionSpeaker`. Lines without a speaker are dropped on purpose in `TranscriptBuilder.update()` |
+| Your own utterances are labeled "Ви" (You) instead of your name | The self-view tile or the name on it is not found | `sel.selfTileIcons`, `sel.tileName`, `dom.selfName()` |
+| History is duplicated after screen sharing or a layout change | Meet re-rendered the region and the block text changed | `adopt()` and `adoptWindowMs` in `shared/transcript.js` |
+| CC does not turn on automatically | The ligatures or the `jsname` of the CC button changed | `MT.ligature.ccOff/ccOn`, `sel.ccButtonJsname`, `dom.captionsState()` |
+| The language does not switch to Ukrainian, a banner appears | The language combobox or the option is not found | `dom.languageCombobox()` (looks for the `language` icon), `sel.languageOptionUk` |
+| Captions are visible although "Субтитри на екрані" (Captions on screen) is off | The CSS does not find the overlay root | `content/page.css`, `sel.captionRoot`, `captions.markRoot()` |
+| A black strip under the video, the video is not full-size | Meet reserved space for captions: the `:has()` rule did not apply before the measurement | `content/page.css`, `captions.spaceReserved()`, `session.reclaimSpaceSoon()` |
+| The "Транскрипт" (Transcript) button is missing or misplaced | The right button group is not found | `sel.panelIcons`, `dom.controlBarAnchor()`, `Sidebar.positionButton()` |
+| The sidebar covers Meet's native panel (chat, people), does not match its height or overlaps the reactions bar | The native panel slot is not found, or Meet stopped writing target insets inline | `sel.nativePanel`, `dom.sidePanelSlot()`, `dom.sidePanelBox()` (compare with `main.style.inset` and the `style` of the `.R3Gmyc` parent) |
+| The sidebar appears without sliding in, or the video shrinks out of sync with it | Meet changed the duration or curve of its panel animation, or a rule for `<main>` overrode our `transition` | `--mt-slide` in `sidebar.css`, `[data-mt-stage]` in `page.css`; compare with `getComputedStyle(.R3Gmyc).transition` |
+| The video does not shift when the sidebar is open | The stage is not found | `dom.stage()` (looks for `[data-participant-id]` → `closest('main')`) |
+| The meeting does not end, the file is not saved | The leave button is not recognized | `MT.ligature.callEnd`, `sel.leaveButtonJsname`, `dom.isInCall()` |
+| Wrong meeting title | The `document.title` format changed | `dom.meetingTitle()`, `sel.meetingTitle` |
+| In a background tab captions "freeze" and arrive in a batch when you open the tab | Meet no longer renders through rAF, or grabbed rAF before our patch | `content/page-raf.js` (see snippet 8) |
+| CC turns itself off and on | A `remeasure()` loop: `spaceReserved()` fires falsely | It must measure the layout box (`offset*`), not `getBoundingClientRect()` |
 
-## 2. Відтворення
+## 2. Reproducing
 
-1. Запустіть dev-сервер: `npm run dev`. Розпаковане розширення тоді саме підхоплює зміни.
-2. Через Claude in Chrome відкрийте `https://meet.google.com/new`. Сторінка одразу заходить у порожній дзвінок з вашим акаунтом.
-3. Тримайте вкладку видимою. Коли вкладка у фоні, CDP-скріншоти падають, а таймери пригальмовуються.
-4. Говоріть самі або запустіть голос:
+1. Start the dev server: `npm run dev`. The unpacked extension then picks up changes by itself.
+2. Open `https://meet.google.com/new` through Claude in Chrome. The page immediately joins an empty call with your account.
+3. Keep the tab visible. While the tab is in the background, CDP screenshots fail and timers are throttled.
+4. Speak yourself or play a voice:
 
    ```bash
    say -v Lesya "Добрий день, колеги. Це перевірка субтитрів."
    ```
 
-   Голос виходить із динаміків, і мікрофон його чує. У навушниках це не працює.
-5. Перевірте консоль: `read_console_messages` із шаблоном `meet-transcriber|Uncaught`.
+   The voice comes out of the speakers and the microphone hears it. This does not work with headphones.
+5. Check the console: `read_console_messages` with the pattern `meet-transcriber|Uncaught`.
 
-Особливості інструментів:
-- `javascript_tool` виконує код у **MAIN world**. Там видно DOM і наші відкриті shadow roots (`#meet-transcriber-root`), але немає `MT` і `chrome.runtime` контент-скрипта.
-- Інструмент блокує вивід, схожий на токени чи base64 («[BLOCKED: …]»). Не виводьте `outerHTML` і довгі рядки класів, користуйтеся структурним дампом (сніпет 2) і `slice()`.
-- Claude in Chrome не відкриває `chrome://extensions` і сторінки `chrome-extension://`. Архів перевіряйте через `dev/archive.html` або просіть користувача.
-- Після перезавантаження розширення SW сам вставляє свіжий контент-скрипт у відкриті вкладки Meet, і той перехоплює дзвінок. У консолі вкладки мають бути `replaced by a newer content script` → `content script loaded` → `resumed <id>`, а `#meet-transcriber-root` лишається один. Якщо вкладку відкрили з кодом, старшим за 1.1.1, перезавантажте її й натисніть «Join now».
-- Команда `await` усередині `javascript_tool`, яка триває під час навігації, завершується помилкою.
+Tool specifics:
+- `javascript_tool` runs code in the **MAIN world**. It sees the DOM and our open shadow roots (`#meet-transcriber-root`), but not the content script's `MT` and `chrome.runtime`.
+- The tool blocks output that looks like tokens or base64 ("[BLOCKED: …]"). Do not print `outerHTML` or long class strings; use the structural dump (snippet 2) and `slice()`.
+- Claude in Chrome cannot open `chrome://extensions` or `chrome-extension://` pages. Check the archive through `dev/archive.html` or ask the user.
+- After an extension reload the SW injects a fresh content script into open Meet tabs by itself, and it takes over the call. The tab console should show `replaced by a newer content script` → `content script loaded` → `resumed <id>`, and there should be only one `#meet-transcriber-root`. If the tab was opened with code older than 1.1.1, reload it and click "Join now".
+- An `await` inside `javascript_tool` that is still running during a navigation fails with an error.
 
-## 3. Сніпети для діагностики (`javascript_tool`)
+## 3. Diagnostic snippets (`javascript_tool`)
 
-**1. Які іконки та кнопки є зараз.** Лігатури не залежать від мови UI.
+**1. Which icons and buttons exist right now.** Ligatures do not depend on the UI language.
 
 ```js
 const icons = {};
@@ -59,7 +59,7 @@ for (const i of document.querySelectorAll('i.google-symbols, i.google-material-i
   w: Math.round(b.getBoundingClientRect().width) })) })
 ```
 
-**2. Структурний дамп регіону субтитрів.** Показує лише безпечні атрибути.
+**2. Structural dump of the captions region.** Shows only safe attributes.
 
 ```js
 function dump(el, d = 0, max = 8) {
@@ -74,9 +74,9 @@ const region = [...document.querySelectorAll('[role="region"]')].find(r => r.que
 region ? dump(region, 0, 6) : [...document.querySelectorAll('[role="region"]')].map(r => r.getAttribute('aria-label'))
 ```
 
-Очікувана структура (09.2026): `region > .nMcdL (блок) > [.adE6rb > img + .KcIKyf > span.NWpY1d (мовець)] + .ygicle (текст)`. В останніх двох дочірніх елементах регіону субтитрів немає.
+Expected structure (09.2026): `region > .nMcdL (block) > [.adE6rb > img + .KcIKyf > span.NWpY1d (speaker)] + .ygicle (text)`. The last two children of the captions region contain no captions.
 
-**3. Як Meet оновлює текст.** Логер мутацій, заодно й для перевірки фонової вкладки.
+**3. How Meet updates the text.** A mutation logger, also useful for checking the background tab.
 
 ```js
 window.__log = [];
@@ -85,10 +85,10 @@ window.__obs?.disconnect();
 window.__obs = new MutationObserver(m => __log.push({ t: performance.now() | 0, hidden: document.hidden, n: m.length,
   tail: region.textContent.replace(/\s+/g, ' ').slice(-60) }));
 window.__obs.observe(region, { subtree: true, childList: true, characterData: true });
-'ok'   // далі: say -v Lesya "…", потім прочитати __log
+'ok'   // next: say -v Lesya "…", then read __log
 ```
 
-**4. Мова субтитрів і доступні опції.**
+**4. Caption language and available options.**
 
 ```js
 const combo = [...document.querySelectorAll('[role="combobox"]')].find(c => [...c.querySelectorAll('i')].some(i => i.textContent.trim() === 'language'));
@@ -97,7 +97,7 @@ const opts = [...document.querySelectorAll('[role="option"]')].map(o => `${o.get
 combo.click(); ({ current: combo.textContent.trim(), uk: opts.filter(o => /uk|ukrain/i.test(o)) })
 ```
 
-**5. Чи резервує Meet місце під субтитри.** Норма: `inset … 136px`, резерв: `… 352px`.
+**5. Whether Meet reserves space for captions.** Normal: `inset … 136px`, reserved: `… 352px`.
 
 ```js
 const main = document.querySelector('[data-participant-id]')?.closest('main');
@@ -108,7 +108,7 @@ const bottom = main.offsetParent.getBoundingClientRect().top + main.offsetTop + 
    captionRoots: [...document.querySelectorAll('.fJsklc')].filter(e => e.querySelector('[jsname="dsyhDe"]')).map(e => e.getBoundingClientRect().height) })
 ```
 
-**6. Права група кнопок і наша пігулка.**
+**6. The right button group and our pill.**
 
 ```js
 const r = el => { const b = el.getBoundingClientRect(); return [b.x, b.y, b.width, b.height].map(Math.round); };
@@ -118,7 +118,7 @@ let g = chat; while (g && g.parentElement && g.parentElement.children.length < 3
    pill: r(document.getElementById('meet-transcriber-root').shadowRoot.querySelector('.mt-cb-float') || document.body) })
 ```
 
-**7. Стан нашого UI (shadow DOM відкритий).** Закрита панель не рендерить слоти, тому сніпет спершу її відкриває.
+**7. State of our UI (the shadow DOM is open).** A closed panel does not render its slots, so the snippet opens it first.
 
 ```js
 const sh = document.getElementById('meet-transcriber-root').shadowRoot;
@@ -127,30 +127,30 @@ if (!sh.querySelector('.mt-panel').classList.contains('is-open')) { sh.querySele
    turns: [...sh.querySelectorAll('.mt-turn')].slice(-3).map(t => t.querySelector('.mt-speaker').textContent + ': ' + t.textContent.slice(-80)) })
 ```
 
-**8. Фонова вкладка.** Запустіть сніпет 3, переведіть вкладку у фон, програйте фразу, прочитайте `__log`. Якщо всі записи мають `hidden: false` або записів немає, поки вкладка прихована, отже rAF-патч більше не допомагає. Далі:
-- перевірте, що `window.__meetTranscriberRaf === true` (патч установлено);
-- можливо, Meet перейшов на інший планувальник (`requestIdleCallback`, `scheduler.postTask`, `IntersectionObserver`), і тоді патч треба розширити;
-- ще одна можлива причина: Meet перевіряє `document.hidden`. У розвідці підміна `visibilityState` виявилася не потрібна, але це варто перевірити знову.
+**8. Background tab.** Run snippet 3, move the tab to the background, play a phrase, read `__log`. If all entries have `hidden: false`, or there are no entries while the tab is hidden, the rAF patch no longer helps. Next:
+- check that `window.__meetTranscriberRaf === true` (the patch is installed);
+- Meet may have switched to another scheduler (`requestIdleCallback`, `scheduler.postTask`, `IntersectionObserver`), and then the patch has to be extended;
+- another possible cause: Meet checks `document.hidden`. During the recon, spoofing `visibilityState` turned out to be unnecessary, but it is worth checking again.
 
-## 4. Як лагодити
+## 4. How to fix
 
-1. **Додавайте, а не замінюйте.** Новий селектор ставте на початок ланцюжка в `selectors.js`, а старий лишайте: Meet часто роздає версії UI поступово, і різні користувачі бачать різний DOM.
-2. **Перевага мовно-незалежним хукам.** Порядок: лігатура іконки, `role`, `jsname`, клас. `aria-label` використовуйте лише як останній фолбек: він локалізований (`Captions` / `Субтитри`).
-3. **Текст читайте тільки через `textContent`.** Сховані елементи дають порожній `innerText`.
-4. **Не вставляйте вузли в DOM Meet.** Meet викидає чужі вузли й перебудовує адаптивні панелі. Наш UI живе у власних shadow roots, позиціонується за прямокутниками елементів Meet і впливає на Meet лише через CSS (`page.css`) та атрибути-маркери.
-5. **Не вимикайте субтитри й не ставте `display:none`, щоб їх сховати.** Тоді регіон зникає з DOM.
-6. **Відобразіть нову структуру в симуляторі** `dev/meet-sim.js` (класи, `jsname`, лігатури), щоб harness відповідав реальному Meet.
-7. **Якщо змінилася поведінка злиття** (наприклад, Meet знову почав обрізати голову блоку), спершу додайте тест у `test/transcript.test.js`, а потім правте `shared/transcript.js`.
+1. **Add, don't replace.** Put a new selector at the start of its chain in `selectors.js` and keep the old one: Meet often rolls out UI versions gradually, and different users see different DOM.
+2. **Prefer language-independent hooks.** Order: icon ligature, `role`, `jsname`, class. Use `aria-label` only as the last fallback: it is localized (`Captions` / `Субтитри`).
+3. **Read text only through `textContent`.** Hidden elements give an empty `innerText`.
+4. **Do not insert nodes into Meet's DOM.** Meet throws out foreign nodes and rebuilds its responsive panels. Our UI lives in its own shadow roots, is positioned by the rectangles of Meet's elements and affects Meet only through CSS (`page.css`) and marker attributes.
+5. **Do not turn captions off or use `display:none` to hide them.** The region then disappears from the DOM.
+6. **Mirror the new structure in the simulator** `dev/meet-sim.js` (classes, `jsname`, ligatures) so that the harness matches the real Meet.
+7. **If the merge behavior changed** (for example, Meet started truncating the head of a block again), first add a test to `test/transcript.test.js`, then edit `shared/transcript.js`.
 
-## 5. Перевірка після виправлення
+## 5. Verification after a fix
 
-1. `npm test`: усі тести проходять.
-2. `http://localhost:8765/dev/harness.html?speed=4`: репліки зʼявляються в сайдбарі, CC вмикаються самі, мова стає `uk-UA`, оверлей схований. Кнопка «re-render region» не повинна створювати дублів.
-3. Реальний дзвінок, щоразу з видимою вкладкою:
-   - вхід: CC вмикаються, мова українська, чорної смуги під відео немає (сніпет 5 → `136px`);
-   - `say -v Lesya` → репліки з вашим іменем зʼявляються в сайдбарі;
-   - відкрити й закрити сайдбар → відео зсувається й повертається, пігулка стоїть поруч із групою, чат видно;
-   - «Субтитри на екрані» → оверлей видно; вимкнути → місце повертається, CC перевмикаються щонайбільше раз;
-   - вкладка у фоні + фраза → текст доходить (сніпет 8);
-   - «Leave call» → файл у `~/Downloads/Meet Transcripts/` (`ls` у терміналі).
-4. Запишіть знахідки в [meet-dom.md](meet-dom.md) із датою. Якщо змінився поріг, оновіть [parameters.md](parameters.md).
+1. `npm test`: all tests pass.
+2. `http://localhost:8765/dev/harness.html?speed=4`: utterances appear in the sidebar, CC turns on by itself, the language becomes `uk-UA`, the overlay is hidden. The "re-render region" button must not create duplicates.
+3. A real call, always with the tab visible:
+   - joining: CC turns on, the language is Ukrainian, no black strip under the video (snippet 5 → `136px`);
+   - `say -v Lesya` → utterances with your name appear in the sidebar;
+   - open and close the sidebar → the video shifts and comes back, the pill sits next to the group, the chat is visible;
+   - "Субтитри на екрані" → the overlay is visible; turn it off → the space is given back, CC is re-toggled at most once;
+   - tab in the background + a phrase → the text arrives (snippet 8);
+   - "Leave call" → a file in `~/Downloads/Meet Transcripts/` (`ls` in the terminal).
+4. Record the findings in [meet-dom.md](meet-dom.md) with a date. If a threshold changed, update [parameters.md](parameters.md).
