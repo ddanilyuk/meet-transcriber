@@ -56,7 +56,10 @@ All documentation is in [docs/](docs/README.md): architecture, parameters, a run
 npm test          # unit tests (node:test, no dependencies)
 npm run dev       # dev server on http://localhost:8765
 npm run icons     # regenerate the icons
+npm run store     # build dist/meet-transcriber-<version>.zip for the Chrome Web Store
 ```
+
+Publishing to the Chrome Web Store is described in [store/README.md](store/README.md).
 
 While `npm run dev` is running:
 - the unpacked extension reloads itself as soon as files under `extension/` change, and injects the new code into open Meet tabs;
@@ -70,6 +73,10 @@ While `npm run dev` is running:
 - Meet's DOM classes are obfuscated and change over time. If captions can no longer be found, the sidebar shows a warning. The fix will most likely be needed only in `content/selectors.js`.
 - If Chrome's "Ask where to save each file before downloading" is on, the automatic save opens a dialog.
 - In a muted background tab (for example when you are alone in the call) Chrome throttles timers. Captions then arrive less often, in batches, and pauses between lines are detected less precisely.
+
+## Privacy
+
+Transcripts never leave your computer. See [docs/privacy.md](docs/privacy.md).
 
 ## License
 

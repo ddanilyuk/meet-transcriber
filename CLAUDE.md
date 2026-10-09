@@ -17,7 +17,12 @@ node --test test/transcript.test.js                         # one file
 node --test --test-name-pattern="head truncation" test/transcript.test.js   # one test by name
 npm run dev                                                 # dev server on http://localhost:8765 (see below)
 npm run icons                                               # regenerate extension/icons/*.png
+npm run store                                               # dist/meet-transcriber-<version>.zip for the Web Store
 ```
+
+The store package (`scripts/build-store.mjs`) is `extension/` minus the dev-only localhost host permission. Listing
+texts, privacy answers and images for the Chrome Web Store dashboard live in `store/README.md`; keep them in sync
+when permissions or features change.
 
 There is no build step, bundler, linter or npm dependency. The unpacked extension is loaded directly from
 `extension/` (chrome://extensions → Developer mode → Load unpacked). Syntax-check a classic script with
