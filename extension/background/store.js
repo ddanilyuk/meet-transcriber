@@ -82,7 +82,8 @@ export function createStore(storage, { now = () => Date.now() } = {}) {
         const t = now();
         const index = await readIndex();
         const candidate = index.find(
-          (m) => m.code === code && t - m.updatedAt < RESUME_IDLE_MS && (!m.endedAt || t - m.endedAt < RESUME_AFTER_END_MS),
+          // Without a code there is no way to tell two calls apart, so never resume one.
+          (m) => code && m.code === code && t - m.updatedAt < RESUME_IDLE_MS && (!m.endedAt || t - m.endedAt < RESUME_AFTER_END_MS),
         );
         if (candidate) {
           const meeting = await read(candidate.id);

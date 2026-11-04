@@ -21,6 +21,11 @@
     captionRoot: ['.fJsklc', '[jsname="dsyhDe"]'],
 
     ccButtonJsname: ['RrG0hf', 'r8qRAd'],
+    // Since 11.2026 the control bar may have a "Captions and translation" button (icon `translate_cc`) that
+    // opens a popup in the slot above the controls (shared with the reactions bar). The real toggle lives
+    // in that popup and exists only while it is open; the popup's second `RrG0hf` button is Translate speech.
+    captionsDialog: ['[role="dialog"]:has(button[jsname="RrG0hf"])', '[role="dialog"][aria-label*="aption" i]', '[role="dialog"][aria-label*="убтитр" i]'],
+    liveCaptionsToggle: ['[jsname="wOezY"] button[jsname="RrG0hf"]', 'button[jsname="RrG0hf"]'],
     leaveButtonJsname: ['CQylAd'],
     languageOptionUk: '[role="option"][data-value^="uk"]',
     meetingTitle: ['[jsname="NeC6gb"]', '.u6vdEc'],
@@ -36,6 +41,7 @@
     callEnd: 'call_end',
     ccOff: 'closed_caption_off',
     ccOn: 'closed_caption',
+    ccMenu: 'translate_cc',
     language: 'language',
   };
 })(globalThis);

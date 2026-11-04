@@ -18,10 +18,38 @@
     }
   }
 
-  function enableCaptions() {
-    if (dom().captionsState() !== 'off') return false;
-    dom().captionsButton()?.click();
-    return true;
+  let toggling = false;
+
+  // New UI: open the "Captions and translation" popup, flip "Live captions" to `on`, close the popup again.
+  // The popup takes the slot of the reactions bar, so it is closed with the same menu button that opened it.
+  async function setCaptionsViaMenu(on) {
+    const menu = dom().captionsMenuButton();
+    if (!menu) return false;
+    let opened = false;
+    if (!dom().liveCaptionsToggle()) {
+      menu.click();
+      opened = true;
+    }
+    const toggle = await waitFor(() => dom().liveCaptionsToggle(), 2000);
+    if (toggle && (dom().captionsState() === 'on') !== on) toggle.click();
+    const done = !!(await waitFor(() => (on ? dom().findRegion() : dom().captionsState() === 'off'), 3000));
+    if (opened && dom().captionsDialog()) dom().captionsMenuButton()?.click();
+    return done;
+  }
+
+  // Turns captions on. Returns a promise of true when it tried; at most one attempt runs at a time
+  // (the session polls every second and the popup round trip takes longer).
+  async function enableCaptions() {
+    if (toggling || dom().captionsState() !== 'off') return false;
+    toggling = true;
+    try {
+      const btn = dom().captionsButton();
+      if (btn) btn.click();
+      else await setCaptionsViaMenu(true);
+      return true;
+    } finally {
+      toggling = false;
+    }
   }
 
   function currentLanguage() {
@@ -68,13 +96,23 @@
 
   // Switching captions off and on makes Meet measure the (now collapsed) overlay again.
   async function remeasure() {
-    if (dom().captionsState() !== 'on') return false;
-    dom().captionsButton()?.click();
-    if (!(await waitFor(() => dom().captionsState() === 'off', 2000))) return false;
-    await sleep(300);
-    dom().captionsButton()?.click();
-    return !!(await waitFor(() => dom().findRegion(), 3000));
+    if (toggling || dom().captionsState() !== 'on') return false;
+    toggling = true;
+    try {
+      if (!dom().captionsButton()) {
+        if (!(await setCaptionsViaMenu(false))) return false;
+        await sleep(300);
+        return await setCaptionsViaMenu(true);
+      }
+      dom().captionsButton()?.click();
+      if (!(await waitFor(() => dom().captionsState() === 'off', 2000))) return false;
+      await sleep(300);
+      dom().captionsButton()?.click();
+      return !!(await waitFor(() => dom().findRegion(), 3000));
+    } finally {
+      toggling = false;
+    }
   }
 
-  MT.captions = { enableCaptions, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor };
+  MT.captions = { enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor };
 })(globalThis);

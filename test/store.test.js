@@ -84,6 +84,15 @@ test('rejoining shortly after leaving resumes and clears endedAt', async () => {
   assert.equal(again.meeting.endedAt, null);
 });
 
+test('meetings without a code never resume each other', async () => {
+  const { store, clock } = setup();
+  const first = await store.start({ code: null, title: 'Eng Management Sync' });
+  clock.t += 60_000;
+  const second = await store.start({ code: null, title: 'Meet' });
+  assert.equal(second.resumed, false);
+  assert.notEqual(second.meeting.id, first.meeting.id);
+});
+
 test('the same code much later starts a new meeting', async () => {
   const { store, clock } = setup();
   const first = await store.start({ code: 'abc-defg-hij' });

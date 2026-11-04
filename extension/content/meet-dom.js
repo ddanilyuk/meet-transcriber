@@ -47,17 +47,49 @@
     return !!leaveButton();
   }
 
+  // The "Captions and translation" control-bar button that opens the captions popup (newer Meet UI).
+  function captionsMenuButton() {
+    return buttonsByIcon(L.ccMenu)[0] || null;
+  }
+
+  // The open captions popup, or null while it is closed.
+  function captionsDialog() {
+    for (const s of S.captionsDialog) {
+      for (const el of document.querySelectorAll(s)) if (first(el, S.liveCaptionsToggle)) return el;
+    }
+    return null;
+  }
+
+  // The "Live captions" toggle inside the open popup. Off ⇔ its icon is `closed_caption_off` (on shows `check`).
+  function liveCaptionsToggle() {
+    const dialog = captionsDialog();
+    if (!dialog) return null;
+    // "Translate speech" is a button[jsname=RrG0hf] too (icon translate_spark): never pick it.
+    for (const s of S.liveCaptionsToggle) {
+      for (const b of dialog.querySelectorAll(s)) {
+        if (![...b.querySelectorAll(S.icon)].some((i) => iconText(i).startsWith('translate'))) return b;
+      }
+    }
+    return null;
+  }
+
   // 'on' | 'off' | null (button not found)
   function captionsState() {
+    // Old UI: a plain CC button in the control bar. Inside the new popup the same icons may appear, which is fine.
     if (buttonsByIcon(L.ccOff)[0]) return 'off';
     if (buttonsByIcon(L.ccOn)[0]) return 'on';
+    // New UI: the toggle is hidden in a popup; the region exists only while captions are on, and the menu
+    // button is aria-pressed while captions (or speech translation) are on.
+    const menu = captionsMenuButton();
+    if (menu) return findRegion() || menu.getAttribute('aria-pressed') === 'true' ? 'on' : 'off';
     const btn = buttonByJsname(S.ccButtonJsname);
     if (!btn) return null;
     return btn.getAttribute('aria-pressed') === 'true' ? 'on' : 'off';
   }
 
+  // The old-style one-click CC toggle, or null in the new UI (see captionsMenuButton()).
   function captionsButton() {
-    return buttonsByIcon(L.ccOff)[0] || buttonsByIcon(L.ccOn)[0] || buttonByJsname(S.ccButtonJsname);
+    return buttonsByIcon(L.ccOff)[0] || buttonsByIcon(L.ccOn)[0] || (captionsMenuButton() ? null : buttonByJsname(S.ccButtonJsname));
   }
 
   function findRegion() {
@@ -132,7 +164,8 @@
   const CODE_RE = /\b([a-z]{3,4}-[a-z]{4}-[a-z]{3,4})\b/;
 
   function meetingCode() {
-    const m = location.pathname.match(/^\/([a-z]{3,4}-[a-z]{4}-[a-z]{3,4})\b/) || document.title.match(CODE_RE);
+    // Calls used to live at /<code>; since 11.2026 Meet also serves them at /meet/<code>.
+    const m = location.pathname.match(/^\/(?:meet\/)?([a-z]{3,4}-[a-z]{4}-[a-z]{3,4})\b/) || document.title.match(CODE_RE);
     return m ? m[1] : null;
   }
 
@@ -240,7 +273,8 @@
   }
 
   MT.dom = {
-    text, buttonsByIcon, leaveButton, isInCall, captionsState, captionsButton, findRegion, parseBlocks,
+    text, buttonsByIcon, leaveButton, isInCall, captionsState, captionsButton, captionsMenuButton, captionsDialog,
+    liveCaptionsToggle, findRegion, parseBlocks,
     captionRoot, languageCombobox, languageLabel, isUkrainian, meetingCode, meetingTitle, selfName,
     controlBarAnchor, sidePanelSlot, sidePanelBox, stage, stageSize,
   };

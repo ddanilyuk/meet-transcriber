@@ -98,3 +98,34 @@ div.fJsklc (position:absolute; caption overlay root, 216px high at the bottom of
 - Right button group (`.tMdQNe.Dg8mNb`): bg `#1e1f20`, radius 32px, padding 0 4px, height 56; children are
   wrappers `.cKYX7b > div > div.r6xAKc > [span > button, div.IxCbn]`. Buttons are transparent 48×48, icon `#c4c7c5`.
   Active panel indicator = `div.IxCbn` (bg `#8ab4f8`) under the button.
+
+## Captions popup and `/meet/<code>` URLs (live recon, 2026-11-04)
+Seen in a calendar meeting with Gemini note-taking; an ad-hoc `meet.google.com/new` call on the same account still
+had the old one-click CC button at the same time, so the rollout is per meeting and both UIs must keep working.
+- **URLs:** calls are now served at `/meet/<code>` (`/new` redirects there). The old `/<code>` path regex missed it, so
+  calls with a calendar title (`document.title` = `"Meet - <title>"`) had no meeting code at all, and every such
+  call resumed the same `code: null` record. `meetingCode()` accepts both paths, and `store.start()` never resumes a
+  meeting without a code.
+- **Control bar:** the CC button is replaced by `button[aria-label="Captions and translation"]` with icon
+  `translate_cc`, `aria-haspopup="dialog"`, no `jsname`. Its `aria-pressed` is `"true"` while captions are on (it
+  stays so after the popup closes).
+- **Popup:** a click opens `[role="dialog"][aria-label="Captions and translation"]` (`jsname="TUXR0d"`) in the slot
+  above the controls — the same slot and `jsname` as the reactions bar, which it temporarily replaces. Clicking the
+  menu button again closes it and the reactions bar comes back. The popup's content exists only while it is open:
+  ```
+  [role=dialog][jsname=TUXR0d]
+    [jsname=wOezY] … button[jsname=RrG0hf]   "Live captions": icon closed_caption_off (off) / check (on),
+                                              aria "Turn on captions" / "Turn off live captions"
+    [jsname=zRRQAf] … button[jsname=RrG0hf]  "Translate speech", icon translate_spark
+    button[aria-label="Open speech translation settings"]
+  ```
+  Two buttons share `jsname="RrG0hf"`, so the toggle is looked up inside `[jsname="wOezY"]` first.
+  Tooltip: captions also toggle with the `c` / `shift + c` shortcut.
+- **Captions bar:** with captions on, the settings bar above the region (`.a4cQT > .NmXUuc`) now has a
+  "Caption type" combobox (`jsname="oYxtQd"`, icon `closed_caption`, text "Live captions") next to the language
+  combobox (icon `language`). Locate the language one by its icon, never by `jsname`.
+- **Region and blocks are unchanged:** `[jsname=dsyhDe] > div[role=region][aria-label=Captions]` with
+  `.nMcdL > .adE6rb > .KcIKyf > span.NWpY1d` + `.ygicle`; the region exists only while captions are on.
+- The extension turns captions on in the new UI by opening the popup, clicking "Live captions" when it shows
+  `closed_caption_off`, waiting for the region and closing the popup with the menu button (`captions.enableCaptions()`);
+  `remeasure()` goes through the popup the same way.

@@ -7,6 +7,8 @@
     speed: Number(params.get('speed') || 1),
     playing: false,
     captionsOn: params.get('cc') === 'on',
+    // ?ccmenu=1: the newer UI (11.2026), where a "Captions and translation" button opens a popup with the toggle.
+    ccMenu: params.get('ccmenu') === '1',
     language: 'English',
     inCall: true,
     log: [],
@@ -58,7 +60,9 @@
         <div class="sim-controls" role="region" aria-label="Call controls">
           <button aria-label="Turn off microphone" class="sim-btn">${icon('mic')}</button>
           <button aria-label="Turn off camera" class="sim-btn">${icon('videocam')}</button>
-          <button aria-label="Turn on captions" jsname="RrG0hf" class="sim-btn sim-cc" id="sim-cc">${icon('closed_caption_off')}</button>
+          ${sim.ccMenu
+            ? `<button aria-label="Captions and translation" aria-haspopup="dialog" aria-pressed="false" class="sim-btn sim-cc" id="sim-ccmenu">${icon('translate_cc')}</button>`
+            : `<button aria-label="Turn on captions" jsname="RrG0hf" class="sim-btn sim-cc" id="sim-cc">${icon('closed_caption_off')}</button>`}
           <button aria-label="Raise hand" class="sim-btn">${icon('back_hand')}</button>
           <button aria-label="More options" class="sim-btn">${icon('more_vert')}</button>
           <button aria-label="Leave call" jsname="CQylAd" class="sim-btn sim-end" id="sim-end">${icon('call_end')}</button>
@@ -71,7 +75,8 @@
         </div>
       </div>`);
 
-    $('#sim-cc').addEventListener('click', () => setCaptions(!sim.captionsOn));
+    $('#sim-cc')?.addEventListener('click', () => setCaptions(!sim.captionsOn));
+    $('#sim-ccmenu')?.addEventListener('click', toggleCaptionsPopup);
     $('#sim-end').addEventListener('click', leaveCall);
     const combo = $('.sim-combo');
     const listbox = $('.sim-listbox');
@@ -103,12 +108,41 @@
     return $('#sim-dsyhDe [role="region"]');
   }
 
+  // The popup sits in the slot above the controls (Meet shares it with the reactions bar) and exists only
+  // while open. "Live captions" and "Translate speech" are both button[jsname=RrG0hf].
+  function toggleCaptionsPopup() {
+    const open = $('#sim-ccpopup');
+    sim.log.push(open ? 'captions popup closed' : 'captions popup opened');
+    if (open) return open.remove();
+    $('.sim-controls').insertAdjacentHTML('beforebegin', `<div role="dialog" aria-label="Captions and translation" jsname="TUXR0d" id="sim-ccpopup" class="sim-popup">
+      <div jsname="wOezY"><button jsname="RrG0hf" class="sim-chip" id="sim-livecc"></button></div>
+      <div jsname="zRRQAf"><button jsname="RrG0hf" class="sim-chip" aria-label="Turn on speech translation">${icon('translate_spark')}Translate speech</button></div>
+    </div>`);
+    $('#sim-livecc').addEventListener('click', () => setCaptions(!sim.captionsOn));
+    renderLiveToggle();
+  }
+
+  function renderLiveToggle() {
+    const btn = $('#sim-livecc');
+    if (!btn) return;
+    btn.innerHTML = `${icon(sim.captionsOn ? 'check' : 'closed_caption_off')}${sim.captionsOn ? 'Live captions' : 'Turn on captions'}`;
+    btn.setAttribute('aria-label', sim.captionsOn ? 'Turn off live captions' : 'Turn on captions');
+  }
+
   function setCaptions(on) {
     sim.captionsOn = on;
     const btn = $('#sim-cc');
-    btn.querySelector('i').textContent = on ? 'closed_caption' : 'closed_caption_off';
-    btn.setAttribute('aria-label', on ? 'Turn off captions' : 'Turn on captions');
-    btn.classList.toggle('is-on', on);
+    if (btn) {
+      btn.querySelector('i').textContent = on ? 'closed_caption' : 'closed_caption_off';
+      btn.setAttribute('aria-label', on ? 'Turn off captions' : 'Turn on captions');
+      btn.classList.toggle('is-on', on);
+    }
+    const menu = $('#sim-ccmenu');
+    if (menu) {
+      menu.setAttribute('aria-pressed', String(on));
+      menu.classList.toggle('is-on', on);
+      renderLiveToggle();
+    }
     $('#sim-dsyhDe').innerHTML = on ? regionHtml() : '';
     $('#sim-caption-root').style.display = on ? '' : 'none';
   }

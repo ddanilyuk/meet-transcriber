@@ -13,7 +13,8 @@ All Meet hooks are collected in one place, `extension/content/selectors.js`. The
 | The speaker name is empty, or system lines ("… joined") get recorded | The speaker selector matches a notification line or does not match the real speaker | `sel.captionSpeaker`. Lines without a speaker are dropped on purpose in `TranscriptBuilder.update()` |
 | Your own utterances are labeled "Ви" (You) instead of your name | The self-view tile or the name on it is not found | `sel.selfTileIcons`, `sel.tileName`, `dom.selfName()` |
 | History is duplicated after screen sharing or a layout change | Meet re-rendered the region and the block text changed | `adopt()` and `adoptWindowMs` in `shared/transcript.js` |
-| CC does not turn on automatically | The ligatures or the `jsname` of the CC button changed | `MT.ligature.ccOff/ccOn`, `sel.ccButtonJsname`, `dom.captionsState()` |
+| CC does not turn on automatically | The ligatures or the `jsname` of the CC button changed, or the toggle moved into the "Captions and translation" popup (icon `translate_cc`, 11.2026) | `MT.ligature.ccOff/ccOn/ccMenu`, `sel.ccButtonJsname`, `sel.captionsDialog`, `sel.liveCaptionsToggle`, `dom.captionsState()`, `captions.enableCaptions()` |
+| Several different calls end up in one record; the meeting code in the archive is empty | `dom.meetingCode()` does not recognise the URL (calls moved from `/<code>` to `/meet/<code>` in 11.2026) | `dom.meetingCode()` |
 | The language does not switch to Ukrainian, a banner appears | The language combobox or the option is not found | `dom.languageCombobox()` (looks for the `language` icon), `sel.languageOptionUk` |
 | Captions are visible although "Субтитри на екрані" (Captions on screen) is off | The CSS does not find the overlay root | `content/page.css`, `sel.captionRoot`, `captions.markRoot()` |
 | A black strip under the video, the video is not full-size | Meet reserved space for captions: the `:has()` rule did not apply before the measurement | `content/page.css`, `captions.spaceReserved()`, `session.reclaimSpaceSoon()` |
@@ -145,7 +146,7 @@ if (!sh.querySelector('.mt-panel').classList.contains('is-open')) { sh.querySele
 ## 5. Verification after a fix
 
 1. `npm test`: all tests pass.
-2. `http://localhost:8765/dev/harness.html?speed=4`: utterances appear in the sidebar, CC turns on by itself, the language becomes `uk-UA`, the overlay is hidden. The "re-render region" button must not create duplicates.
+2. `http://localhost:8765/dev/harness.html?speed=4`: utterances appear in the sidebar, CC turns on by itself, the language becomes `uk-UA`, the overlay is hidden. The "re-render region" button must not create duplicates. Repeat with `&ccmenu=1` (the newer "Captions and translation" popup): CC turns on through the popup and the popup closes again.
 3. A real call, always with the tab visible:
    - joining: CC turns on, the language is Ukrainian, no black strip under the video (snippet 5 → `136px`);
    - `say -v Lesya` → utterances with your name appear in the sidebar;

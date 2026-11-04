@@ -139,7 +139,8 @@
     // Periodic checks while in the call: captions state, language, own name, title.
     refresh() {
       const cc = MT.dom.captionsState();
-      if (cc === 'off' && this.settings.autoCaptions && this.ccAttempts < 3) {
+      // The new UI turns captions on through a popup, which outlasts a poll: don't count polls while it runs.
+      if (cc === 'off' && this.settings.autoCaptions && this.ccAttempts < 3 && !MT.captions.busy()) {
         this.ccAttempts++;
         MT.captions.enableCaptions();
       }

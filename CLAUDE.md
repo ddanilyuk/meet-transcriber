@@ -31,7 +31,8 @@ There is no build step, bundler, linter or npm dependency. The unpacked extensio
 While `npm run dev` runs:
 - `/dev/harness.html` — Meet simulator (DOM copied 1:1 from the live recon) that loads the content scripts
   listed in `manifest.json` with a `chrome.*` shim; query params `?speed=4`, `?cc=on`, `?autoplay=0`,
-  `?prejoin=1` (start on a "Ready to join?" screen without call controls).
+  `?prejoin=1` (start on a "Ready to join?" screen without call controls), `?ccmenu=1` (the newer "Captions and
+  translation" popup instead of the one-click CC button).
 - `/dev/archive.html` — the archive page on the same shim storage as the harness.
 - `/design/mockup.html` — every sidebar state rendered with the real templates and CSS.
 - `/__version` — hash of `extension/`; the unpacked extension reloads itself when it changes (`background/dev-reload.js`).
