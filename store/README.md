@@ -1,5 +1,7 @@
 # Chrome Web Store submission
 
+Published listing: <https://chromewebstore.google.com/detail/meet-transcriber/nbplddgnafihdhidggcphgcleiamhobk> (item ID `nbplddgnafihdhidggcphgcleiamhobk`, first published with 1.1.2 in 10.2026).
+
 Everything the Chrome Web Store developer dashboard asks for, ready to paste. The listing is in Ukrainian because the
 extension UI is Ukrainian and it only transcribes Ukrainian captions.
 
@@ -15,6 +17,10 @@ before every new upload; the store rejects a version it has already seen.
 
 Dashboard: <https://chrome.google.com/webstore/devconsole>. Chrome does not let extensions or embedded browsers
 script the Chrome Web Store, so the dashboard has to be filled in by hand.
+
+To publish an update: bump the version, `npm run store`, then in the dashboard open the item → **Package** →
+**Upload new package** → select the zip → **Submit for review**. The listing texts and privacy answers carry over;
+update them only when permissions or features change.
 
 ## Files
 

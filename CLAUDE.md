@@ -20,7 +20,8 @@ npm run icons                                               # regenerate extensi
 npm run store                                               # dist/meet-transcriber-<version>.zip for the Web Store
 ```
 
-The store package (`scripts/build-store.mjs`) is `extension/` minus the dev-only localhost host permission. Listing
+The extension is published in the Chrome Web Store (<https://chromewebstore.google.com/detail/meet-transcriber/nbplddgnafihdhidggcphgcleiamhobk>). The store
+package (`scripts/build-store.mjs`) is `extension/` minus the dev-only localhost host permission. Listing
 texts, privacy answers and images for the Chrome Web Store dashboard live in `store/README.md`; keep them in sync
 when permissions or features change.
 

@@ -1,13 +1,23 @@
 # Installation
 
-Meet Transcriber is not published in the Chrome Web Store. It is installed as an unpacked extension
-("Load unpacked") from a folder on your computer. It takes about two minutes.
+Meet Transcriber is published in the [Chrome Web Store](https://chromewebstore.google.com/detail/meet-transcriber/nbplddgnafihdhidggcphgcleiamhobk). That is the easiest way to install it, and
+Chrome keeps it up to date. It can also be installed as an unpacked extension ("Load unpacked") from a GitHub release or
+a clone of the repository: use that for development or to get a fix before the store review approves it.
+
+Keep only one copy enabled. The store version and an unpacked copy are separate extensions with separate archives, and
+both would record the same call.
 
 ## Requirements
 
 - Google Chrome 116 or later on a desktop (macOS, Windows, Linux). Mobile is not supported.
 - Google Meet in the browser. Meet captions must be available for your account (they are in regular Google Workspace).
 - For development only: Node.js 20+. Regular use does not need Node.
+
+## Install from the Chrome Web Store
+
+1. Open [Meet Transcriber in the Chrome Web Store](https://chromewebstore.google.com/detail/meet-transcriber/nbplddgnafihdhidggcphgcleiamhobk).
+2. Click **Add to Chrome** and confirm.
+3. Done. New versions arrive automatically once the store has reviewed them.
 
 ## Install from GitHub Releases
 
@@ -28,8 +38,8 @@ Developers may prefer to clone the repository and load `extension/` from the clo
 
 - **Pin the icon.** Click the puzzle icon to the right of the address bar and pin "Meet Transcriber". Clicking the
   icon opens the meeting archive.
-- **Chrome warning.** After a restart Chrome may show "Disable developer mode extensions" with a list of unpacked
-  extensions. This is the standard warning for any extension installed with Load unpacked. Close it with the cross
+- **Chrome warning (unpacked install only).** After a restart Chrome may show "Disable developer mode extensions" with
+  a list of unpacked extensions. This is the standard warning for any extension installed with Load unpacked. Close it with the cross
   or click **Cancel**: the extension keeps working.
 - **Download settings.** If Chrome's "Ask where to save each file before downloading" is on
   (`chrome://settings/downloads`), a save dialog opens after every meeting. Turn it off so files are saved on their own.
@@ -68,13 +78,15 @@ renaming, export to Markdown / TXT / JSON, deletion.
 | `downloads` | The automatic `.md` save and manual export. |
 | `alarms` | Ends a meeting when its tab was closed, and runs a check for "lost" meetings every minute. |
 | `scripting` + `https://meet.google.com/*` | After an extension update, injects the fresh script into Meet tabs that are already open so recording is not interrupted. |
-| `http://localhost:8765/*` | Development only: auto-reload during `npm run dev`. Outside development the extension makes one request to localhost when Meet opens and nothing after that. |
+| `http://localhost:8765/*` | Unpacked install only (the store package does not ask for it): auto-reload during `npm run dev`. Outside development the extension makes one request to localhost when Meet opens and nothing after that. |
 
 No data is sent anywhere. There are no servers, no analytics and no external requests apart from the local dev server.
 
 ## Updating
 
-Download **Source code (zip)** of the new release, replace the folder contents with the new ones (so `extension/`
+The Chrome Web Store version updates itself; Chrome checks for new versions every few hours.
+
+For an unpacked install, download **Source code (zip)** of the new release, replace the folder contents with the new ones (so `extension/`
 stays at the same path), then `chrome://extensions` → **Reload** (the circular arrow on the extension card). If the
 extension is installed from a cloned repository, run `git pull` instead of replacing the folder, then the same **Reload**.
 

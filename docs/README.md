@@ -2,7 +2,7 @@
 
 | Document | What it covers |
 | --- | --- |
-| [installation.md](installation.md) | Installing from GitHub Releases, first call, settings, permissions, updating, uninstalling, troubleshooting |
+| [installation.md](installation.md) | Installing from the Chrome Web Store or GitHub Releases, first call, settings, permissions, updating, uninstalling, troubleshooting |
 | [architecture.md](architecture.md) | Execution contexts, data flow, the merge algorithm, meeting lifecycle, message protocol, storage schema, UI |
 | [parameters.md](parameters.md) | Every setting, threshold and timing: where it is defined, what it means, what happens if you change it |
 | [dom-troubleshooting.md](dom-troubleshooting.md) | Runbook for when Meet changes its DOM: symptoms, diagnostic snippets, how to fix and verify |

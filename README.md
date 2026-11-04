@@ -13,10 +13,15 @@ The extension UI is in Ukrainian.
 
 ## Installation
 
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/meet-transcriber/nbplddgnafihdhidggcphgcleiamhobk) and click **Add to Chrome**. Chrome updates it automatically.
+
+To run the code from this repository instead (for example, a fix that is not in the store yet):
+
 1. Download **Source code (zip)** of the latest release from the [Releases](https://github.com/ddanilyuk/meet-transcriber/releases) page and unpack it into a permanent folder (or clone the repository).
 2. Open `chrome://extensions` and turn on **Developer mode** (top right).
 3. Click **Load unpacked** and select the `extension/` folder.
 
+Keep only one copy enabled: the store and unpacked versions are separate extensions and would both record the call.
 Requires Chrome 116 or later. The full guide (first call, permissions, updates, troubleshooting) is in
 [docs/installation.md](docs/installation.md).
 
