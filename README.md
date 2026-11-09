@@ -62,9 +62,11 @@ npm test          # unit tests (node:test, no dependencies)
 npm run dev       # dev server on http://localhost:8765
 npm run icons     # regenerate the icons
 npm run store     # build dist/meet-transcriber-<version>.zip for the Chrome Web Store
+npm run store:publish   # build, upload and submit it for review through the Chrome Web Store API
 ```
 
-Publishing to the Chrome Web Store is described in [store/README.md](store/README.md).
+Publishing to the Chrome Web Store (including the one-time API setup for `store:publish`) is described in
+[store/README.md](store/README.md).
 
 While `npm run dev` is running:
 - the unpacked extension reloads itself as soon as files under `extension/` change, and injects the new code into open Meet tabs;

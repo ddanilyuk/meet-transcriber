@@ -18,7 +18,13 @@ node --test --test-name-pattern="head truncation" test/transcript.test.js   # on
 npm run dev                                                 # dev server on http://localhost:8765 (see below)
 npm run icons                                               # regenerate extension/icons/*.png
 npm run store                                               # dist/meet-transcriber-<version>.zip for the Web Store
+npm run store:status                                        # published / submitted versions (Web Store API V2)
+npm run store:publish                                       # build, upload and submit for review (asks first)
+npm run store:auth                                          # one-time OAuth sign-in, credentials in the Keychain
 ```
+
+`store:publish` submits the extension for review in the public store: run it only when the user asks for a store
+release. One-time setup and the manual fallback are in `store/README.md`.
 
 The extension is published in the Chrome Web Store (<https://chromewebstore.google.com/detail/meet-transcriber/nbplddgnafihdhidggcphgcleiamhobk>). The store
 package (`scripts/build-store.mjs`) is `extension/` minus the dev-only localhost host permission. Listing

@@ -16,11 +16,53 @@ It writes `dist/meet-transcriber-<version>.zip`: the `extension/` folder with th
 before every new upload; the store rejects a version it has already seen.
 
 Dashboard: <https://chrome.google.com/webstore/devconsole>. Chrome does not let extensions or embedded browsers
-script the Chrome Web Store, so the dashboard has to be filled in by hand.
+script the Chrome Web Store, so listing texts, images and privacy answers have to be filled in by hand. The package
+itself is uploaded from the command line (below).
 
-To publish an update: bump the version, `npm run store`, then in the dashboard open the item → **Package** →
-**Upload new package** → select the zip → **Submit for review**. The listing texts and privacy answers carry over;
-update them only when permissions or features change.
+## Publishing an update
+
+After the version bump, tag and GitHub release:
+
+```bash
+npm run store:publish
+```
+
+`scripts/publish-store.mjs` checks the store first (refuses when the version is not newer than the one in the store
+or a submission is still in review, warns about an untagged or dirty checkout), asks for confirmation, builds the
+zip with `npm run store`, uploads it through the Chrome Web Store API V2 and submits it for review. The new version
+goes live by itself once the review passes. `npm run store:publish -- --upload-only` uploads without submitting;
+`npm run store:status` shows the published and submitted versions. The listing texts and privacy answers carry over;
+when permissions or features change, update them in the dashboard as well.
+
+Manual fallback: dashboard → the item → **Package** → **Upload new package** → select the zip → **Submit for review**.
+
+### One-time setup
+
+The script signs in with an OAuth client of your own Google Cloud project and keeps the credentials in the macOS
+Keychain (service `meet-transcriber-cws`). Environment variables `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`,
+`CWS_REFRESH_TOKEN` and `CWS_PUBLISHER_ID` override the Keychain.
+
+1. <https://console.cloud.google.com/projectcreate>: create a project (any name, e.g. `meet-transcriber-publish`).
+   Use the Google account that owns the Chrome Web Store item.
+2. <https://console.cloud.google.com/apis/library/chromewebstore.googleapis.com>: **Enable** the Chrome Web Store API.
+3. <https://console.cloud.google.com/auth/overview>: **Get started**, enter an app name and email, then the audience:
+   - **Internal** if the account is a Google Workspace account and the project belongs to that organization;
+   - otherwise **External**, and afterwards **Audience → Publish app** (to "In production"). In "Testing" Google
+     expires refresh tokens after 7 days. The app stays unverified, which is fine for your own account: the sign-in
+     page shows a warning, continue through **Advanced**.
+4. **Clients → Create client → Desktop app**. Copy the client ID and the client secret.
+5. Developer Dashboard → **Publisher → Settings**: copy the publisher ID.
+6. Run:
+
+   ```bash
+   npm run store:auth
+   ```
+
+   It asks for the client ID, secret and publisher ID, opens the Google sign-in page in the browser (sign in with
+   the account that owns the item), checks the credentials with a real status request and saves them to the
+   Keychain. Run it again whenever the script reports that the refresh token was rejected.
+
+The Chrome Web Store requires 2-step verification on the publisher account for API publishing.
 
 ## Files
 

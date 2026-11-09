@@ -9,7 +9,10 @@
     "test": "node --test \"test/*.test.js\"",
     "dev": "node dev/server.mjs",
     "icons": "node scripts/make-icons.mjs",
-    "store": "node scripts/build-store.mjs"
+    "store": "node scripts/build-store.mjs",
+    "store:auth": "node scripts/publish-store.mjs auth",
+    "store:status": "node scripts/publish-store.mjs status",
+    "store:publish": "node scripts/publish-store.mjs publish"
   },
   "engines": {
     "node": ">=20"
