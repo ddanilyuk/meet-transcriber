@@ -58,8 +58,7 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | `POPUP_CLOSE_MS` | 800 | After clicking the menu button to close the captions popup, how long to wait for it to leave the DOM before clicking once more. Shorter than Meet's close animation would toggle it open again. |
 | `REACTIONS_BACK_MS` | 1500 | After the popup closed, how long Meet gets to bring the reactions bar back (`aria-pressed` of "Send a reaction") before the extension clicks that button itself. Only when the bar was on before the round trip. Every round trip is logged to the console with these states. |
 | `mt-hide-captions` / `data-mt-caption-root` | — | The class on `<html>` and the attribute that `content/page.css` relies on. |
-| `mt-pip-style` | — | The `<style>` appended to Meet's picture-in-picture document on `enter` (and re-checked every poll). It only sets `visibility: hidden` on the captions region there (`sel.pipCaptionContent`) while `mt-hide-captions` is on the PiP `<html>`; the band's 160 px layout box is never changed, because collapsing it was followed by Meet closing its reactions bar (`docs/meet-dom.md`). |
-| `reactions bar on\|off` log | — | `captions.watchReactions()` logs every flip of "Send a reaction" `aria-pressed` with the tab's hidden state and duration, PiP size, popup state, `toggling`, `spaceReserved()` and the session's `status`/`reclaiming`/`ccAttempts`. Diagnostics for the intermittent loss of the bar; no behaviour attached. |
+| `mt-pip-style` | — | The `<style>` appended to Meet's picture-in-picture document on `enter` (and re-checked every poll). It collapses the captions band there (`sel.pipCaptionBand`) while `mt-hide-captions` is on the PiP `<html>`, the same rule as `page.css` for the main overlay. |
 
 ## Sidebar — `content/sidebar/sidebar.js`, `sidebar.css`
 

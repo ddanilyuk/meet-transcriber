@@ -152,22 +152,21 @@ reactions bar disappears after joining.
   trip is logged (`captions popup round trip {...}`), the extension does not act while the popup is open, closing is
   confirmed before a second click, and the bar is reopened through its button if it was on before and is gone 1.5 s
   after.
-- **Our PiP style was one trigger, but not the whole story** (bisected and re-tested live, 2026-11-09). When the
-  Meet tab goes to the background Meet opens its Document PiP window by itself at a stamp size (312×113) and grows
-  it over ~300 ms to the remembered size. With the captions band collapsed by the `<style>` the extension (1.1.4)
-  added on `enter`, the main document's "Send a reaction" button was re-rendered with `aria-pressed="false"` ~80 ms
-  after `enter` and the bar was gone (`<main>` bottom 88 px); delaying the style 1.5 s survived seven quick tab
-  switches but not a long stay in PiP. Without any PiP style the bar still disappeared now and then for the user
-  after tab switches, and in the manual "Open picture-in-picture" flow it dropped once right after a rejoin
-  (the extension had just run a captions popup round trip 50 s earlier) and survived six other runs, with and
-  without a collapsed band, with and without `document.hidden` faked. So the cause is not established. Known for
-  sure: a layout change in the PiP document during the growth makes the drop reliable in automatic PiP; manual PiP
-  grows the same way but did not reproduce that; Meet persists `aria-pressed` across calls, so one drop looks
-  permanent until the button is clicked again. Since 1.2.0 the extension only hides the captions *text* in PiP
-  (`visibility: hidden`, the band keeps its 160 px) and logs every flip of `aria-pressed` with context
-  (`reactions bar on|off {hidden, hiddenForMs, pip, popup, toggling, spaceReserved, status, reclaiming, ccAttempts}`)
-  plus `pip opened|closed`, so a report from daily use carries the order of events. The rAF patch was only ever
-  tested together with the collapsing style, so it is not ruled out for the remaining drops.
+- **It is Meet's own bug, armed by its captions popup** (isolated live and confirmed without the extension
+  installed, 2026-11-09). Once the "Captions and translation" popup has been opened and closed in a call — by the
+  extension's `enableCaptions()` round trip or by hand with real clicks, toggling live captions off and on — the
+  next *automatic* PiP (tab sent to the background) re-renders the main document's "Send a reaction" with
+  `aria-pressed="false"` 145–190 ms after the tab was hidden, while the PiP window is still growing (≈250×630 of
+  283×719), and Meet persists that off state across calls (`<main>` bottom 88 px, nothing restores it when PiP
+  closes). Clicking "Send a reaction" again disarms it: eight automatic PiP cycles in a row then kept the bar,
+  until the next popup round trip armed it again. Not involved: the extension's PiP style (the drop happened with
+  no style, with `visibility: hidden` only and with the collapsed band alike), the rAF patch (tested switched off),
+  the sidebar, the popup being open at the time (closed in every trace). Manual "Open picture-in-picture" grows the
+  window the same way but reproduced the drop only once in seven runs, so the test is a tab switch by hand.
+  Earlier notes here blamed the extension's PiP style: a coincidence of timing (the style landed in the same growth
+  window), the drop needed the popup round trip at join, which 1.1.4 made at every join with captions off. This is
+  the "reactions disappear after I join" report. No workaround is implemented; the only known reset is clicking
+  the reactions button off and on after a round trip, which would blink the bar (TODO).
 - **Pre-join after reload:** a reload of `/meet/<code>` shows "Ready to join?" first; the call UI (and the Leave button)
   appears only after "Join now". `/new` still joins at once.
 
@@ -198,6 +197,7 @@ div.zqL4Ue (flex)
   its `height: 160px` ~100 ms in, and the PiP document's own reactions bar (`[jsname=TUXR0d]` dialog) appears
   ~90 ms in (three manual runs, 2026-11-09; an earlier note that manual PiP opens at full size was wrong). Meet's
   `<style>` sheets are already in the PiP head when `enter` fires (31 of them), and a `<style>` the content script
-  appends then is kept. The extension's `#mt-pip-style` only sets `visibility: hidden` on the captions region
-  inside the band (`sel.pipCaptionContent`), keyed off the `mt-hide-captions` class on the PiP `<html>`, so the
-  band's layout box stays as Meet made it (see the reactions section above for why the band is never collapsed).
+  appends then is kept. The extension's `#mt-pip-style` collapses the band (`sel.pipCaptionBand`: height 0,
+  padding 0, opacity 0), keyed off the `mt-hide-captions` class on the PiP `<html>`; the video column grows and
+  Meet re-lays out the tiles. The reactions bar vanishing after a tab switch has nothing to do with this style
+  (see the reactions section above).

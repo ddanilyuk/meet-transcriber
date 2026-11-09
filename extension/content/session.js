@@ -114,8 +114,6 @@
       });
       this.tracker.start();
       MT.captions.setOverlayVisible(this.settings.showOverlay);
-      this.stopReactionsWatch?.();
-      this.stopReactionsWatch = MT.captions.watchReactions(() => ({ status: this.status, reclaiming: !!this.reclaiming, ccAttempts: this.ccAttempts }));
       console.info('[meet-transcriber]', res.resumed ? 'resumed' : 'started', this.meeting.id);
       this.emit('state');
     }
@@ -139,7 +137,6 @@
       clearTimeout(this.saveTimer);
       this.tracker?.stop();
       this.stopPipWatch?.();
-      this.stopReactionsWatch?.();
       this.listeners.clear();
     }
 
@@ -147,8 +144,6 @@
       const meeting = this.meeting;
       if (!meeting) return;
       this.tracker?.stop();
-      this.stopReactionsWatch?.();
-      this.stopReactionsWatch = null;
       await this.saveNow();
       await MT.send('session:end', { id: meeting.id });
       this.meeting = null;

@@ -4,7 +4,7 @@ A local Chrome extension for Google Meet. It saves meeting captions (in Ukrainia
 
 - Reads Google Meet's built-in captions straight from the page. No API or external servers are needed, and no data leaves your computer.
 - Shows the transcript in a sidebar styled like Meet's own side panels.
-- Hides Meet's native captions overlay in the call tab so it takes no space from the video. You can bring it back with the "Субтитри на екрані" (Captions on screen) toggle; it also hides the captions text in Meet's picture-in-picture window.
+- Hides Meet's native captions overlay in the call tab so it takes no space from the video. You can bring it back with the "Субтитри на екрані" (Captions on screen) toggle; the same applies to Meet's picture-in-picture window.
 - Turns captions on when you join a call and switches the recognition language to Ukrainian.
 - Stores everything locally in `chrome.storage.local`. Includes a searchable meeting archive and export to Markdown, TXT or JSON.
 - Saves a `.md` file to `Downloads/Meet Transcripts/` automatically when a meeting ends.
@@ -49,7 +49,7 @@ Settings (⚙ in the sidebar or in the archive):
 
 - `content/page-raf.js` runs in the MAIN world. Chrome pauses `requestAnimationFrame` in background tabs, and then Meet stops updating captions in the DOM. The script routes rAF to timers, so recording continues while you are in another tab.
 - `content/caption-tracker.js` watches the captions region with a `MutationObserver`. `shared/transcript.js` turns Meet's stream of edits into stable lines: appended words, tail corrections, pauses, truncated long blocks and region re-renders.
-- `content/page.css` collapses the captions overlay before Meet measures it, so Meet doesn't reserve space for it. Meet's picture-in-picture window is a separate document that `page.css` does not reach; the extension only hides the captions text there and never changes that window's layout (see `docs/meet-dom.md`).
+- `content/page.css` collapses the captions overlay before Meet measures it, so Meet doesn't reserve space for it. Meet's picture-in-picture window is a separate document that `page.css` does not reach, so the content script adds the same rule there when it opens (see `docs/meet-dom.md`).
 - `background/` is the service worker, the only writer to storage. It also tracks meeting tabs and downloads.
 - All Meet DOM selectors live in `content/selectors.js`, with fallbacks. Notes from the live DOM recon are in [docs/meet-dom.md](docs/meet-dom.md).
 
@@ -77,6 +77,7 @@ While `npm run dev` is running:
 ## Limitations
 
 - Meet captions contain only what Google recognized. Ukrainian is marked BETA there and has no punctuation.
+- Google Meet bug (seen 2026-11-09, also without the extension): after its "Captions and translation" popup has been used in a call, the next automatic picture-in-picture (switching to another tab) closes Meet's reactions bar and remembers it as off. The extension uses that popup to turn captions on when you join, so this will happen on calls where captions were off. Click "Send a reaction" once to bring the bar back.
 - Meet's DOM classes are obfuscated and change over time. If captions can no longer be found, the sidebar shows a warning. The fix will most likely be needed only in `content/selectors.js`.
 - If Chrome's "Ask where to save each file before downloading" is on, the automatic save opens a dialog.
 - In a muted background tab (for example when you are alone in the call) Chrome throttles timers. Captions then arrive less often, in batches, and pauses between lines are detected less precisely.

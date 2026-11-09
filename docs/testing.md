@@ -37,7 +37,7 @@ npm run dev
   - **re-render region** — clones the region the way Meet does; there must be no duplicates;
   - **leave call** — the "You left the meeting" screen;
   - **reset storage** — clears the shim storage;
-  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). The band must keep its 160 px whatever "Субтитри на екрані" says (collapsing it was followed by Meet dropping its reactions bar); the copied region is `visibility: hidden` while the toggle is off and visible while it is on. The console shows `pip opened {…}` / `pip closed {…}`, and the **reactions bar** button below produces `reactions bar off {…}` / `on {…}` lines;
+  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). With "Субтитри на екрані" off the band collapses to 0 px and the video column takes its place; with it on the band is back to 160 px with the region visible;
   - **reactions bar** — shows/hides the bar above the controls; `<main>` gets `bottom: 136px` / `88px` and the panel must follow (`--mt-bottom`);
   - **native panel** — opens Meet's own chat panel (`aside.R3Gmyc`); `<main>` gets `right: 392px` and our panel must move left of it (`--mt-right: 392px`), shrinking the stage further.
 - `http://localhost:8765/dev/archive.html` — the archive on the same storage.
@@ -98,11 +98,12 @@ Prerequisites:
      remembered size over ~300 ms), and "Bring the call back here" closes it. This is the way to iterate on
      anything in the PiP document without asking the user to switch tabs: `documentPictureInPicture.window.document`
      is reachable from `javascript_tool`. Expected: `#mt-pip-style` present, `<html class="mt-hide-captions">`,
-     `.epgFze` 160 px high, the region inside it `visibility: hidden`, Meet's reactions bar in both documents
-     untouched. What it does **not** cover: the intermittent loss of the reactions bar after real tab switches — that
-     needs the user to switch tabs by hand (Claude in Chrome cannot hide the Meet tab: a new tab opens in the
-     background and `document.hidden` stays `false`), and the `reactions bar off {…}` console line then carries
-     the context;
+     `.epgFze` 0 px high and the video column taller; with "Субтитри на екрані" on, the band is 160 px with the
+     copied region visible. What it does **not** cover: anything about the reactions bar after real tab switches —
+     that needs the user to switch tabs by hand (Claude in Chrome cannot hide the Meet tab: a new tab opens in the
+     background and `document.hidden` stays `false`). The bar vanishing there is Meet's own bug, armed by its
+     captions popup (also by the extension's round trip at join) and reset by clicking "Send a reaction" again
+     (`docs/meet-dom.md`); click the button once after joining before judging anything else;
    - **panel visibility**: the `meet.google.com` home page, the "Join now" screen and "You left the meeting" → `.mt-panel` has `hidden`, there is no `.mt-cb-float` pill, `<html>` has no `mt-panel-open`. In a call, right after joining, the pill is there and the panel is closed (`.mt-panel` without `is-open`, `visibility: hidden`), even if it was open before the reload.
    - **sliding in like Meet's chat** (the tab must be visible; animations stall in the background). Sample `getBoundingClientRect()` of the panel and of `<main>` every ~50 ms after clicking the pill. Expected:
      - within ~0.5 s the panel moves in x from `innerWidth` to `innerWidth − 376`, and the stage width shrinks in sync;

@@ -85,10 +85,9 @@ Key pieces and the non-obvious reasons behind them:
   `MT.captions.remeasure()` toggles CC off/on (max twice per meeting). Never use `display:none` or turn captions off to
   hide them — the region disappears from the DOM. Meet's picture-in-picture window (Document PiP) is a separate
   document with its own captions band that `page.css` does not reach; `captions-control.js` appends a `<style>` there
-  on `enter` that only sets `visibility: hidden` on the captions region. Never change the band's layout box: collapsing
-  it (1.1.4) was followed by Meet closing its reactions bar for good after the automatic PiP opened. The bar still
-  disappears now and then without that, cause unknown; every flip is logged (`reactions bar on|off {…}`,
-  `docs/meet-dom.md`). Recording keeps reading the main document.
+  on `enter` that collapses the band the same way. Recording keeps reading the main document. Meet's reactions bar
+  vanishing after a tab switch is Meet's own bug (2026-11-09, reproduced without the extension): its captions popup,
+  which the extension uses at join, arms it, and clicking "Send a reaction" resets it (`docs/meet-dom.md`).
 - `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes. Transcript events
   (live captions update ~3×/s) re-render only the list, reconciled per speaker turn and per segment (an unchanged
   entry keeps the same text string, so nothing is rebuilt for it); the footer and the control-bar pill are patched
