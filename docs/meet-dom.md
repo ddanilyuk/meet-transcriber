@@ -152,12 +152,16 @@ reactions bar disappears after joining.
   trip is logged (`captions popup round trip {...}`), the extension does not act while the popup is open, closing is
   confirmed before a second click, and the bar is reopened through its button if it was on before and is gone 1.5 s
   after.
-- **The real cause is Meet's picture-in-picture.** Reproduced twice with the user: when the Meet tab goes to the
-  background and Meet opens its Document PiP window by itself, `aria-pressed` of "Send a reaction" flips to `"false"`
-  and the bar is gone (`<main>` bottom 88 px) with no extension activity in the console; when PiP closes ("Bring the
-  call back here") Meet does **not** restore the bar. That is the "reactions disappear after I join" report: joining
-  and switching to another window. Clicking "Send a reaction" brings the bar back by hand. The extension does not
-  touch it (an opt-in "restore the reactions bar after PiP" would be a `mood` click on PiP exit).
+- **The real cause was our style in the automatic picture-in-picture window** (bisected live, 2026-11-09). When
+  the Meet tab goes to the background Meet opens its Document PiP window by itself at a stamp size (312×113) and
+  grows it over ~300 ms to the remembered size. While it grows, Meet decides whether its reactions bar still fits:
+  with the captions band already collapsed by the `<style>` the extension added on `enter`, the decision came out
+  "no" ~80 ms after `enter` — the main document's "Send a reaction" button was re-rendered with
+  `aria-pressed="false"` and the bar was gone for good (`<main>` bottom 88 px, nothing restores it when PiP closes).
+  Without the extension, with the style delayed until the window stopped resizing (`PIP_SETTLE_MS`), and in the
+  manual "Open picture-in-picture" flow (which opens at full size while the tab stays visible) the bar survives.
+  Ruled out on the way: the rAF patch, the sidebar, the captions popup round trips (none were logged). That was the
+  "reactions disappear after I join" report: joining and switching to another window.
 - **Pre-join after reload:** a reload of `/meet/<code>` shows "Ready to join?" first; the call UI (and the Leave button)
   appears only after "Join now". `/new` still joins at once.
 
@@ -183,3 +187,9 @@ div.zqL4Ue (flex)
   and Meet re-lays out the tiles by itself (unlike the main stage, where space is reserved when captions turn on).
 - An inline `<style>` added to the PiP `<head>` is accepted (no CSP issue). The isolated-world content script can
   reach `documentPictureInPicture.window.document` and receives the `enter` event, so no MAIN-world bridge is needed.
+- **Automatic PiP opens small and grows.** On `enter` the window is 312×113 and `resize` events take it to the
+  remembered size (here 283×719) over ~300 ms; the captions band starts as `display: none` and gets its
+  `height: 160px` ~100 ms in. Meet decides about its own reactions bar (also a `[jsname=TUXR0d]` dialog in the PiP
+  document) during that growth, and a collapsed band at that moment makes it close the bar in both documents (see
+  the reactions section above). Hence `syncPip()` waits for `PIP_SETTLE_MS` without a resize before adding the style.
+  Manual PiP from the menu opens at full size at once, so the same style never caused trouble there.

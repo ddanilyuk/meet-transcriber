@@ -85,8 +85,9 @@ Key pieces and the non-obvious reasons behind them:
   `MT.captions.remeasure()` toggles CC off/on (max twice per meeting). Never use `display:none` or turn captions off to
   hide them — the region disappears from the DOM. Meet's picture-in-picture window (Document PiP) is a separate
   document with its own captions band that `page.css` does not reach; `captions.syncPip()` adds a `<style>` and the
-  same html class there (on `documentPictureInPicture` `enter` and every session poll). Recording keeps reading the
-  main document.
+  same html class there, but only `PIP_SETTLE_MS` after the window stopped resizing: the automatic PiP opens tiny and
+  grows, and a band collapsed during that growth makes Meet close its reactions bar for good (`docs/meet-dom.md`).
+  Recording keeps reading the main document.
 - `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes. Transcript events
   (live captions update ~3×/s) re-render only the list, reconciled per speaker turn and per segment (an unchanged
   entry keeps the same text string, so nothing is rebuilt for it); the footer and the control-bar pill are patched
