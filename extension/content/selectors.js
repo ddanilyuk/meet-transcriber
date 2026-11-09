@@ -19,6 +19,9 @@
     captionText: ['.ygicle', '[jsname="tgaKEf"]', '.bh44bd'],
     // Root of the whole captions overlay (region + language bar); hidden with visibility:hidden.
     captionRoot: ['.fJsklc', '[jsname="dsyhDe"]'],
+    // Picture-in-picture window (a separate document, page.css does not reach it): the captions band under the
+    // video column (`.epgFze`, inline `height: 160px`). Its region sits in `.DtJ7e`, hence the structural fallback.
+    pipCaptionBand: ['.epgFze:has([jsname="dsyhDe"])', 'div:has(> div > [jsname="dsyhDe"])'],
 
     ccButtonJsname: ['RrG0hf', 'r8qRAd'],
     // Since 11.2026 the control bar may have a "Captions and translation" button (icon `translate_cc`) that

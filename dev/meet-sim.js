@@ -156,6 +156,36 @@
     sim.log.push('region re-rendered');
   };
 
+  // Meet's "Open picture-in-picture" (Document PiP, also opened automatically on a tab switch): a separate
+  // document with the call tiles, a captions band under them and its own copy of the captions region.
+  // Structure as recorded on 2026-11-09 (docs/meet-dom.md); the band's inline height is Meet's.
+  // requestWindow() needs a user gesture, so the harness calls this from a toolbar button.
+  sim.openPip = async function openPip() {
+    if (!window.documentPictureInPicture) return sim.log.push('no Document PiP API');
+    const pip = await documentPictureInPicture.requestWindow({ width: 411, height: 774 });
+    const d = pip.document;
+    d.head.innerHTML = `<style>
+      body { margin: 0; background: #131314; color: #e3e3e3; font: 14px system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+      .zqL4Ue { display: flex; flex: 1 1 auto; min-height: 0; }
+      .xHjUnc { display: flex; flex-direction: column; flex: 1 0 0; position: relative; }
+      .fXfIsf { flex: 1 0 auto; display: grid; place-items: center; background: #3c4043; margin: 4px 8px 0; border-radius: 12px; }
+      .epgFze { display: flex; padding: 8px 0 2px; }
+      .iOzk7 { position: absolute; left: 0; right: 0; bottom: 10px; max-height: 146px; overflow: hidden; padding: 0 12px; }
+      .Tmb7Fd { height: 72px; display: grid; place-items: center; }
+    </style>`;
+    d.body.innerHTML = `<div class="zqL4Ue"><div class="xHjUnc">
+        <div class="fXfIsf" jsname="B57Zse">video</div>
+        <div class="epgFze XUNlS" style="height: 160px;"><div class="DtJ7e"><div class="iOzk7" jsname="dsyhDe"></div></div></div>
+      </div></div>
+      <div class="Tmb7Fd" role="region" aria-label="Call controls">${icon('call_end')}</div>`;
+    const mirror = setInterval(() => {
+      const target = d.querySelector('[jsname="dsyhDe"]');
+      if (target) target.innerHTML = region() ? region().outerHTML : '';
+    }, 500);
+    pip.addEventListener('pagehide', () => clearInterval(mirror));
+    sim.log.push('picture-in-picture opened');
+  };
+
   function leaveCall() {
     sim.inCall = false;
     sim.playing = false;

@@ -79,8 +79,61 @@
     if (el && !el.hasAttribute(ROOT_ATTR)) el.setAttribute(ROOT_ATTR, '');
   }
 
+  let overlayVisible = true;
+
   function setOverlayVisible(visible) {
+    overlayVisible = visible;
     document.documentElement.classList.toggle(HIDE_CLASS, !visible);
+    syncPip();
+  }
+
+  // Meet's picture-in-picture window (Document PiP: the "Open picture-in-picture" menu item, or automatically
+  // when the user switches tabs) is a separate document with its own captions band under the video, so the
+  // manifest's page.css does not apply there. Our recording reads the main document, which keeps rendering
+  // captions, so the band only takes room from the video: give the PiP document the same rule and html class.
+  const PIP_STYLE_ID = 'mt-pip-style';
+
+  function pipDocument() {
+    try {
+      return root.documentPictureInPicture?.window?.document || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function pipCss() {
+    const band = MT.sel.pipCaptionBand.map((s) => `html.${HIDE_CLASS} ${s}`).join(',\n');
+    return `${band} {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}`;
+  }
+
+  // Idempotent: called when PiP opens, on every settings change and from the session poll (in case Meet
+  // rebuilds the PiP document's head).
+  function syncPip(doc = pipDocument()) {
+    if (!doc?.documentElement) return;
+    if (!doc.getElementById(PIP_STYLE_ID)) {
+      const style = doc.createElement('style');
+      style.id = PIP_STYLE_ID;
+      style.textContent = pipCss();
+      (doc.head || doc.documentElement).append(style);
+    }
+    doc.documentElement.classList.toggle(HIDE_CLASS, !overlayVisible);
+  }
+
+  // Returns a function that stops watching (for the takeover by a newer content script).
+  function watchPip() {
+    const api = root.documentPictureInPicture;
+    if (!api) return () => {};
+    const onEnter = (e) => syncPip(e.window?.document);
+    api.addEventListener('enter', onEnter);
+    syncPip();
+    return () => api.removeEventListener('enter', onEnter);
   }
 
   // True when Meet keeps a band for captions under the video although the overlay is collapsed
@@ -114,5 +167,5 @@
     }
   }
 
-  MT.captions = { enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor };
+  MT.captions = { enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, syncPip, watchPip, spaceReserved, remeasure, waitFor };
 })(globalThis);

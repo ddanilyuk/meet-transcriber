@@ -129,3 +129,26 @@ had the old one-click CC button at the same time, so the rollout is per meeting 
 - The extension turns captions on in the new UI by opening the popup, clicking "Live captions" when it shows
   `closed_caption_off`, waiting for the region and closing the popup with the menu button (`captions.enableCaptions()`);
   `remeasure()` goes through the popup the same way.
+
+## Picture-in-picture window (live recon, 2026-11-09)
+Meet's "More options → Open picture-in-picture" (and the automatic PiP when the user leaves the tab) uses the
+Document Picture-in-Picture API: `documentPictureInPicture.window` is a separate same-origin document (≈411×774)
+with the tiles, a captions band and a compact control bar. Meet copies its stylesheets into it, but the manifest's
+`page.css` does **not** apply there, so with captions on the band took 160 of 674 px under the video.
+```
+div.zqL4Ue (flex)
+  div.xHjUnc (flex column, position:relative)
+    div.fXfIsf[jsname=B57Zse]       ← video column, flex: 1 0 auto
+      … main.axUSnc                  ← tiles, laid out by Meet (.dkjMxf inline geometry)
+    div.epgFze.XUNlS[style="height: 160px"]   ← captions band, padding 8px 0 2px
+      div.DtJ7e (0 px high)
+        div.iOzk7[jsname=dsyhDe] (position:absolute, 146 px)
+          div.vNKgIf[role=region][aria-label=Captions] … same .nMcdL blocks as the main document
+```
+- The PiP region is a second copy: the main document's region keeps receiving captions while PiP is open, so
+  recording does not depend on the PiP document. (In the test the opener tab also stayed `document.hidden === false`
+  while PiP was open; captions kept updating either way.)
+- Collapsing `.epgFze:has([jsname="dsyhDe"])` (height 0, padding 0) grows the video column from 514 to 664–674 px,
+  and Meet re-lays out the tiles by itself (unlike the main stage, where space is reserved when captions turn on).
+- An inline `<style>` added to the PiP `<head>` is accepted (no CSP issue). The isolated-world content script can
+  reach `documentPictureInPicture.window.document` and receives the `enter` event, so no MAIN-world bridge is needed.

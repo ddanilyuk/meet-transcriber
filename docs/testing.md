@@ -33,7 +33,8 @@ npm run dev
   - ▶/⏸ and speed;
   - **re-render region** — clones the region the way Meet does; there must be no duplicates;
   - **leave call** — the "You left the meeting" screen;
-  - **reset storage** — clears the shim storage.
+  - **reset storage** — clears the shim storage;
+  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). With "Субтитри на екрані" off, the band must collapse to 0 px.
 - `http://localhost:8765/dev/archive.html` — the archive on the same storage.
 - `http://localhost:8765/design/mockup.html` — every sidebar state.
 

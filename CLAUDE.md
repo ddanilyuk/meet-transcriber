@@ -73,7 +73,10 @@ Key pieces and the non-obvious reasons behind them:
   **when captions are switched on** and reserves that height under the video; hiding it later does not give the space
   back. The `:has([jsname="dsyhDe"])` rule collapses it before Meet measures; if space is still reserved,
   `MT.captions.remeasure()` toggles CC off/on (max twice per meeting). Never use `display:none` or turn captions off to
-  hide them — the region disappears from the DOM.
+  hide them — the region disappears from the DOM. Meet's picture-in-picture window (Document PiP) is a separate
+  document with its own captions band that `page.css` does not reach; `captions.syncPip()` adds a `<style>` and the
+  same html class there (on `documentPictureInPicture` `enter` and every session poll). Recording keeps reading the
+  main document.
 - `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes and the list is reconciled
   per speaker turn (live captions update ~3×/s). Panel and button exist only while `Sidebar.inCall()` (active
   session + Meet's Leave button) — never on the Meet home page, the pre-join screen or after leaving. The panel

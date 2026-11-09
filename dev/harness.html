@@ -64,6 +64,9 @@
     <button data-dev="leave">leave call</button>
     <button data-dev="reset">reset storage</button>
   </div>
+  <div class="row">
+    <button data-dev="pip">picture-in-picture</button>
+  </div>
   <div id="dev-log"></div>
 </div>
 
@@ -117,6 +120,7 @@
     if (action === 'speed') { meetSim.speed = speeds[(speeds.indexOf(meetSim.speed) + 1) % speeds.length]; speedEl.textContent = meetSim.speed; }
     if (action === 'rerender') meetSim.rerender();
     if (action === 'leave') meetSim.leave();
+    if (action === 'pip') meetSim.openPip();
     if (action === 'reset') { await window.__shimResetStorage(); location.reload(); }
   });
   setInterval(() => { document.getElementById('dev-log').textContent = meetSim.log.slice(-8).join('\n'); }, 500);

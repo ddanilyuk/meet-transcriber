@@ -53,6 +53,7 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | `setUkrainian()` timeouts | 3000 / 2000 / 2000 ms | Waiting for the combobox, for the `uk-UA` option and for confirmation that the language changed. |
 | `remeasure()` timeouts | 2000 + 300 + 3000 ms | Waits for CC to turn off, pauses, waits for the new region. |
 | `mt-hide-captions` / `data-mt-caption-root` | — | The class on `<html>` and the attribute that `content/page.css` relies on. |
+| `mt-pip-style` | — | Id of the `<style>` added to Meet's picture-in-picture document (`syncPip()`), keyed off the same `mt-hide-captions` class on the PiP `<html>`. Re-checked on PiP `enter` and on every session poll. |
 
 ## Sidebar — `content/sidebar/sidebar.js`, `sidebar.css`
 

@@ -44,6 +44,7 @@
       const settings = await MT.send('tab:hello', { code: MT.dom.meetingCode() });
       if (settings) this.settings = { ...DEFAULT_SETTINGS, ...settings };
       MT.captions.setOverlayVisible(this.settings.showOverlay);
+      this.stopPipWatch = MT.captions.watchPip();
       try {
         chrome.storage.onChanged.addListener((changes, area) => {
           if (area !== 'local' || !changes.settings?.newValue) return;
@@ -65,6 +66,7 @@
 
     poll() {
       if (!MT.contextAlive()) return this.onContextLost();
+      MT.captions.syncPip();
       const inCall = MT.dom.isInCall();
       if (inCall) this.misses = 0;
       if (inCall && !this.meeting && !this.starting) this.start();
@@ -119,6 +121,7 @@
       this.destroyed = true;
       clearInterval(this.pollTimer);
       clearTimeout(this.saveTimer);
+      this.stopPipWatch?.();
       this.tracker?.stop();
       this.listeners.clear();
     }
