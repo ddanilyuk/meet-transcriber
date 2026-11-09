@@ -7,6 +7,10 @@
   const SAVE_DEBOUNCE_MS = 1500;
   const LEAVE_MISSES = 3; // polls without the Leave button before the call counts as left
   const NOT_FOUND_MS = 10000;
+  const CC_ATTEMPTS = 3; // times per session captions are turned back on
+  const CC_RETRY_MS = 8000; // the first attempt is immediate; later ones are spaced out
+  const RECLAIMS_MAX = 1; // captions off/on round trips per meeting to make Meet re-measure the collapsed overlay
+  const RECLAIM_CONFIRM_MS = 1000; // the reservation must still be there after this long (Meet's layout settles late)
   const DEFAULT_SETTINGS = { autoCaptions: true, autoUkrainian: true, showOverlay: false, autoDownload: true };
 
   class MeetingSession {
@@ -16,6 +20,7 @@
       this.builder = null;
       this.tracker = null;
       this.status = 'idle'; // idle | waiting | recording | off | notfound | ended
+      this.inCall = false; // Leave button seen, with LEAVE_MISSES polls of tolerance while a meeting is open
       this.language = null; // { label, ukrainian }
       this.banner = null;
       this.bannerDismissed = false;
@@ -27,6 +32,7 @@
       this.regionMissingSince = null;
       this.languageTried = false;
       this.ccAttempts = 0;
+      this.ccNextAt = 0;
     }
 
     on(fn) {
@@ -67,11 +73,18 @@
     poll() {
       if (!MT.contextAlive()) return this.onContextLost();
       MT.captions.syncPip();
-      const inCall = MT.dom.isInCall();
-      if (inCall) this.misses = 0;
-      if (inCall && !this.meeting && !this.starting) this.start();
-      if (!inCall && this.meeting && ++this.misses >= LEAVE_MISSES) this.end();
-      if (this.meeting && inCall) this.refresh();
+      const seen = MT.dom.isInCall();
+      if (seen) this.misses = 0;
+      else if (this.meeting) this.misses++;
+      if (seen && !this.meeting && !this.starting) this.start();
+      if (!seen && this.meeting && this.misses >= LEAVE_MISSES) this.end();
+      // Meet rebuilds its control bar now and then; one poll without the Leave button must not hide the UI.
+      const inCall = seen || (!!this.meeting && this.misses < LEAVE_MISSES);
+      if (inCall !== this.inCall) {
+        this.inCall = inCall;
+        this.emit('state');
+      }
+      if (this.meeting && seen) this.refresh();
     }
 
     async start() {
@@ -87,6 +100,7 @@
       this.status = 'waiting';
       this.languageTried = false;
       this.ccAttempts = 0;
+      this.ccNextAt = 0;
       this.reclaims = 0;
       this.builder = new MT.TranscriptBuilder();
       this.builder.load(this.meeting.entries);
@@ -142,9 +156,12 @@
     // Periodic checks while in the call: captions state, language, own name, title.
     refresh() {
       const cc = MT.dom.captionsState();
-      // The new UI turns captions on through a popup, which outlasts a poll: don't count polls while it runs.
-      if (cc === 'off' && this.settings.autoCaptions && this.ccAttempts < 3 && !MT.captions.busy()) {
+      // Captions go on at once when joining. Later attempts are spaced out, and none is made while the captions
+      // popup is open: the user is changing something there, and the new UI's own round trip outlasts a poll.
+      if (cc === 'off' && this.settings.autoCaptions && this.ccAttempts < CC_ATTEMPTS && !MT.captions.busy()
+        && Date.now() >= this.ccNextAt && !MT.dom.captionsDialog()) {
         this.ccAttempts++;
+        this.ccNextAt = Date.now() + CC_RETRY_MS;
         MT.captions.enableCaptions();
       }
 
@@ -220,8 +237,12 @@
     reclaimSpaceSoon(delay = 1500) {
       clearTimeout(this.reclaimTimer);
       this.reclaimTimer = setTimeout(async () => {
-        // Toggling captions is disruptive, so never more than twice per meeting.
-        if (this.settings.showOverlay || this.reclaiming || this.reclaims >= 2 || !MT.captions.spaceReserved()) return;
+        // Toggling captions is disruptive (in the new UI it is a popup round trip), so at most RECLAIMS_MAX per
+        // meeting, and only when the reservation survives a second look: Meet's layout settles late after joining.
+        const blocked = () => this.settings.showOverlay || this.reclaiming || this.reclaims >= RECLAIMS_MAX || !MT.captions.spaceReserved();
+        if (blocked()) return;
+        await new Promise((r) => setTimeout(r, RECLAIM_CONFIRM_MS));
+        if (blocked() || this.destroyed) return;
         this.reclaims = (this.reclaims || 0) + 1;
         this.reclaiming = true;
         console.info('[meet-transcriber] reclaiming the space Meet reserved for captions');
@@ -275,6 +296,7 @@
 
     enableCaptions() {
       this.ccAttempts = 0;
+      this.ccNextAt = 0;
       MT.captions.enableCaptions();
     }
 

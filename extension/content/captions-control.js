@@ -20,11 +20,17 @@
 
   let toggling = false;
 
+  const POPUP_CLOSE_MS = 800; // Meet's popup animates out over ~0.5 s; a second click earlier would reopen it
+  const REACTIONS_BACK_MS = 1500; // how long Meet gets to bring the reactions bar back after the popup closes
+
   // New UI: open the "Captions and translation" popup, flip "Live captions" to `on`, close the popup again.
   // The popup takes the slot of the reactions bar, so it is closed with the same menu button that opened it.
+  // Meet restores the bar afterwards; if it does not (seen once, mechanism unknown), the bar is reopened with
+  // its own button. Every round trip is logged with the states around it so the next occurrence can be read.
   async function setCaptionsViaMenu(on) {
     const menu = dom().captionsMenuButton();
     if (!menu) return false;
+    const reactionsBefore = dom().reactionsWanted();
     let opened = false;
     if (!dom().liveCaptionsToggle()) {
       menu.click();
@@ -33,8 +39,26 @@
     const toggle = await waitFor(() => dom().liveCaptionsToggle(), 2000);
     if (toggle && (dom().captionsState() === 'on') !== on) toggle.click();
     const done = !!(await waitFor(() => (on ? dom().findRegion() : dom().captionsState() === 'off'), 3000));
-    if (opened && dom().captionsDialog()) dom().captionsMenuButton()?.click();
+    const closed = opened ? await closePopup() : null;
+    let reactionsRestored = null;
+    if (opened && reactionsBefore && !(await waitFor(() => dom().reactionsWanted(), REACTIONS_BACK_MS))) {
+      dom().reactionsButton()?.click();
+      reactionsRestored = !!(await waitFor(() => dom().reactionsWanted(), 1000));
+    }
+    console.info('[meet-transcriber] captions popup round trip', {
+      on, opened, toggled: !!toggle, done, closed, reactionsBefore, reactionsAfter: dom().reactionsWanted(), reactionsRestored,
+    });
     return done;
+  }
+
+  // Closes the popup with the menu button and waits until it is really gone; one retry, and only after Meet
+  // had time to finish its close animation (an earlier click toggles the popup open again).
+  async function closePopup() {
+    for (let i = 0; i < 2 && dom().captionsDialog(); i++) {
+      dom().captionsMenuButton()?.click();
+      if (await waitFor(() => !dom().captionsDialog(), POPUP_CLOSE_MS)) return true;
+    }
+    return !dom().captionsDialog();
   }
 
   // Turns captions on. Returns a promise of true when it tried; at most one attempt runs at a time

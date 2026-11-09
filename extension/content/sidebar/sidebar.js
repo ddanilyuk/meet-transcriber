@@ -132,7 +132,7 @@
     // The panel and its button exist only during a call: not on the Meet home page, the pre-join screen or
     // after leaving. Within a call the panel is always rendered and slides in and out like Meet's own panels.
     inCall() {
-      return !!this.session.meeting && MT.dom.isInCall();
+      return !!this.session.meeting && this.session.inCall;
     }
 
     isShown() {

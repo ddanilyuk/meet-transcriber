@@ -52,6 +52,16 @@
     return buttonsByIcon(L.ccMenu)[0] || null;
   }
 
+  // "Send a reaction" in the control bar. Its aria-pressed tells whether Meet means to show the reactions bar;
+  // it stays "true" while the captions popup temporarily takes the bar's slot, and Meet persists it across calls.
+  function reactionsButton() {
+    return buttonsByIcon(L.reactions)[0] || buttonByJsname(S.reactionsButtonJsname);
+  }
+
+  function reactionsWanted() {
+    return reactionsButton()?.getAttribute('aria-pressed') === 'true';
+  }
+
   // The open captions popup, or null while it is closed.
   function captionsDialog() {
     for (const s of S.captionsDialog) {
@@ -274,6 +284,7 @@
 
   MT.dom = {
     text, buttonsByIcon, leaveButton, isInCall, captionsState, captionsButton, captionsMenuButton, captionsDialog,
+    reactionsButton, reactionsWanted,
     liveCaptionsToggle, findRegion, parseBlocks,
     captionRoot, languageCombobox, languageLabel, isUkrainian, meetingCode, meetingTitle, selfName,
     controlBarAnchor, sidePanelSlot, sidePanelBox, stage, stageSize,

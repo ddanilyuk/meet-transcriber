@@ -30,6 +30,10 @@
     captionsDialog: ['[role="dialog"]:has(button[jsname="RrG0hf"])', '[role="dialog"][aria-label*="aption" i]', '[role="dialog"][aria-label*="убтитр" i]'],
     liveCaptionsToggle: ['[jsname="wOezY"] button[jsname="RrG0hf"]', 'button[jsname="RrG0hf"]'],
     leaveButtonJsname: ['CQylAd'],
+    // "Send a reaction" (icon `mood`): aria-pressed="true" while Meet shows the reactions bar above the controls.
+    // The bar and the captions popup share one slot, `[jsname="TUXR0d"]` (role=dialog while either is shown).
+    reactionsButtonJsname: ['G0pghc'],
+    bottomSlot: ['[jsname="TUXR0d"]'],
     languageOptionUk: '[role="option"][data-value^="uk"]',
     meetingTitle: ['[jsname="NeC6gb"]', '.u6vdEc'],
     // Buttons that only exist on the self-view tile (reframe / visual effects).
@@ -46,5 +50,6 @@
     ccOn: 'closed_caption',
     ccMenu: 'translate_cc',
     language: 'language',
+    reactions: 'mood',
   };
 })(globalThis);
