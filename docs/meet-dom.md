@@ -145,13 +145,19 @@ reactions bar disappears after joining.
   `bottom: 128px`; without them `88px` / `80px`. This is where the panel's `--mt-bottom` 136 ↔ 88 comes from.
 - A synthetic `KeyboardEvent` for the `c` shortcut does nothing (Meet checks `isTrusted`), so the popup stays the only
   way to toggle captions in the new UI.
-- **Not reproduced:** in 5 visible-tab runs (auto-enable, `remeasure()` replay, fast reopen) the bar always came back.
-  It did vanish once during a test where captions were switched off by hand and the extension re-enabled them within
-  the same second: afterwards the popup was left open and `aria-pressed` had become `"false"`; the exact interleaving
-  is unknown. A hidden-tab run (CSS transitions do not advance there) was not done. Since 1.2.0 every popup round trip
-  is logged (`captions popup round trip {...}`), the extension does not act while the popup is open, closing is
+- **Not caused by the popup:** in 6 visible-tab runs (auto-enable, `remeasure()` replay, fast reopen, the extension's
+  own re-enable after a manual switch-off) the bar always came back. It did vanish once during an early test where
+  captions were switched off by hand and the extension re-enabled them within the same second: afterwards the popup was
+  left open and `aria-pressed` had become `"false"`; the exact interleaving is unknown. Since 1.2.0 every popup round
+  trip is logged (`captions popup round trip {...}`), the extension does not act while the popup is open, closing is
   confirmed before a second click, and the bar is reopened through its button if it was on before and is gone 1.5 s
   after.
+- **The real cause is Meet's picture-in-picture.** Reproduced twice with the user: when the Meet tab goes to the
+  background and Meet opens its Document PiP window by itself, `aria-pressed` of "Send a reaction" flips to `"false"`
+  and the bar is gone (`<main>` bottom 88 px) with no extension activity in the console; when PiP closes ("Bring the
+  call back here") Meet does **not** restore the bar. That is the "reactions disappear after I join" report: joining
+  and switching to another window. Clicking "Send a reaction" brings the bar back by hand. The extension does not
+  touch it (an opt-in "restore the reactions bar after PiP" would be a `mood` click on PiP exit).
 - **Pre-join after reload:** a reload of `/meet/<code>` shows "Ready to join?" first; the call UI (and the Leave button)
   appears only after "Join now". `/new` still joins at once.
 
