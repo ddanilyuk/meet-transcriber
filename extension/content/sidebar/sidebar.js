@@ -1,11 +1,14 @@
 // The transcript side panel and its control-bar button, rendered into shadow roots on the Meet page.
-// The panel is split into slots that are re-rendered only when their HTML changes; the transcript list is
-// reconciled turn by turn so the live caption can update several times a second without losing scroll or focus.
+// Rendering is split by what changed: transcript updates (several times a second while someone speaks) touch
+// only the list, and inside the list only the head and segments whose data changed; session state, settings
+// and UI actions re-render the slots; geometry (panel box, stage scale, button position) is recomputed on
+// open/close, on Meet's own layout changes (MutationObserver, resize) and from a cheap 1 s tick.
 (function (root) {
   const MT = (root.MT = root.MT || {});
   const { tpl, util, t } = MT;
 
   const AT_BOTTOM_PX = 48;
+  const LAYOUT_KINDS = new Set(['all', 'state', 'open', 'settings']); // render kinds after which geometry may differ
 
   class Sidebar {
     constructor(session) {
@@ -17,9 +20,10 @@
       this.showNewPill = false;
       this.slots = {};
       this.slotHtml = {};
-      this.turnEls = new Map(); // turn key -> { el, html }
+      this.turnEls = new Map(); // turn key (first entry id) -> { el, main, speaker, head, segs: Map(entry id -> seg) }
       this.listKind = null; // 'turns' | empty-state html
       this.sheet = null;
+      this.pillPos = '';
     }
 
     async mount() {
@@ -51,9 +55,9 @@
       this.list.addEventListener('scroll', () => this.onScroll(), { passive: true });
       const { signal } = (this.pageListeners = new AbortController());
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.menu) this.setMenu(null); }, { signal });
-      addEventListener('resize', () => this.layout(), { signal });
+      addEventListener('resize', () => { this.layout(); this.positionButton(); }, { signal });
 
-      this.session.on((kind) => this.render(kind));
+      this.session.on((kind) => this.onSession(kind));
       this.tickTimer = setInterval(() => this.tick(), 1000);
       this.render('all');
     }
@@ -130,7 +134,8 @@
     }
 
     // The panel and its button exist only during a call: not on the Meet home page, the pre-join screen or
-    // after leaving. Within a call the panel is always rendered and slides in and out like Meet's own panels.
+    // after leaving. The session decides (with tolerance for Meet's control-bar rebuilds); within a call the
+    // panel is always rendered and slides in and out like Meet's own panels.
     inCall() {
       return !!this.session.meeting && this.session.inCall;
     }
@@ -139,15 +144,27 @@
       return this.panel.classList.contains('is-open');
     }
 
-    render() {
+    onSession(kind) {
+      if (kind === 'transcript') return this.renderTranscript();
+      this.render(kind);
+    }
+
+    // Captions changed: only the list can differ. Called several times a second while someone speaks.
+    renderTranscript() {
+      if (!this.isShown()) return;
+      this.renderList(this.vm());
+    }
+
+    render(kind = 'all') {
       if (!this.session.meeting) this.open = false; // every call starts with the panel closed
-      this.renderButton();
       const inCall = this.inCall();
       const shown = this.open && inCall;
       this.panel.hidden = !inCall;
       this.panel.classList.toggle('is-open', shown);
       this.panel.inert = !shown;
-      if (!shown) return this.layout();
+      this.renderButton();
+      if (LAYOUT_KINDS.has(kind) || !shown) this.layout();
+      if (!shown) return;
       const vm = this.vm();
       this.setSlot('header', tpl.header(vm));
       this.setSlot('meta', tpl.meta(vm));
@@ -158,7 +175,6 @@
       this.setSlot('footer', tpl.footer(vm));
       this.setSlot('menu', tpl.menu(vm));
       this.setSlot('snackbar', tpl.snackbar(vm.snackbar));
-      this.layout();
     }
 
     // The search field is rendered once so typing never loses focus; only the match counter changes.
@@ -194,17 +210,13 @@
       let cursor = null; // previous element in document order
       for (const tr of vm.turns) {
         const key = tr.entries[0].id;
-        const html = tpl.turn(tr, vm.query, vm.liveId);
         keep.add(key);
         let rec = this.turnEls.get(key);
-        if (!rec || rec.html !== html) {
-          const tmp = document.createElement('div');
-          tmp.innerHTML = html;
-          const el = tmp.firstElementChild;
-          if (rec) rec.el.replaceWith(el);
-          rec = { el, html };
+        if (!rec) {
+          rec = this.createTurn(tr);
           this.turnEls.set(key, rec);
         }
+        this.updateTurn(rec, tr, vm);
         const expected = cursor ? cursor.nextElementSibling : this.list.firstElementChild;
         if (rec.el !== expected) {
           if (cursor) cursor.after(rec.el);
@@ -221,6 +233,55 @@
       else if (grew && !vm.query && !this.showNewPill) {
         this.showNewPill = true;
         this.setSlot('pill', `<button class="mt-new-pill" data-action="scroll-bottom">${MT.icon('arrowDown', 18)}${t.newReplies}</button>`);
+      }
+    }
+
+    createTurn(tr) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = tpl.turnShell(tr);
+      const el = tmp.firstElementChild;
+      return { el, main: el.querySelector('.mt-turn-main'), speaker: tr.speaker, head: null, segs: new Map() };
+    }
+
+    // Patches a turn in place. Entry texts are compared by value, but an unchanged entry keeps the same string,
+    // so for everything but the live segment this is a handful of pointer comparisons and no HTML is built.
+    updateTurn(rec, tr, vm) {
+      const isLiveTurn = tr.entries.some((e) => e.id === vm.liveId);
+      rec.el.classList.toggle('has-live', isLiveTurn);
+      if (rec.speaker !== tr.speaker) {
+        rec.speaker = tr.speaker;
+        const avatar = rec.el.querySelector('.mt-avatar');
+        avatar.style.background = util.avatarColor(tr.speaker);
+        avatar.textContent = util.initials(tr.speaker);
+      }
+      const last = tr.entries[tr.entries.length - 1];
+      const head = { speaker: tr.speaker, startedAt: tr.startedAt, single: tr.entries.length === 1, lastLive: last.id === vm.liveId };
+      const h = rec.head;
+      if (!h || h.speaker !== head.speaker || h.startedAt !== head.startedAt || h.single !== head.single || h.lastLive !== head.lastLive) {
+        rec.head = head;
+        const node = fromHtml(tpl.turnHead(tr, vm.liveId));
+        const old = rec.main.querySelector('.mt-turn-head');
+        if (old) old.replaceWith(node);
+        else rec.main.prepend(node);
+      }
+      const keep = new Set();
+      let cursor = rec.main.firstElementChild; // the head
+      tr.entries.forEach((e, i) => {
+        keep.add(e.id);
+        const live = e.id === vm.liveId;
+        const showTime = i > 0;
+        let seg = rec.segs.get(e.id);
+        if (!seg || seg.text !== e.text || seg.live !== live || seg.showTime !== showTime || seg.query !== vm.query || seg.startedAt !== e.startedAt) {
+          const node = fromHtml(tpl.segment(e, vm.query, live, showTime));
+          if (seg) seg.el.replaceWith(node);
+          seg = { el: node, text: e.text, live, showTime, query: vm.query, startedAt: e.startedAt };
+          rec.segs.set(e.id, seg);
+        }
+        if (cursor.nextElementSibling !== seg.el) cursor.after(seg.el);
+        cursor = seg.el;
+      });
+      for (const [id, seg] of rec.segs) {
+        if (!keep.has(id)) { seg.el.remove(); rec.segs.delete(id); }
       }
     }
 
@@ -281,15 +342,26 @@
       this.watched = { stage, slot };
     }
 
+    // Once a second: follow Meet's control bar with the button and notice when Meet replaced the stage or the
+    // panel slot (the observer then watches dead nodes). Everything here works on cached anchors.
+    tick() {
+      if (this.panel.hidden) return;
+      this.positionButton();
+      if (this.watched && (this.watched.stage !== MT.dom.stage() || this.watched.slot !== MT.dom.sidePanelSlot())) this.layout();
+    }
+
     // ---------- control-bar button ----------
     // The button is not inserted into Meet's control bar: Meet's bar is responsive and hides its own
     // buttons (e.g. chat) to make room for foreign ones, then rebuilds and drops them. Instead it is a
     // separate pill styled like Meet's right-hand group, positioned just left of that group.
 
     renderButton() {
-      if (!this.inCall()) return this.setSlot('fab', '');
+      if (!this.inCall()) {
+        this.pillPos = '';
+        return this.setSlot('fab', '');
+      }
       const recording = this.session.status === 'recording';
-      this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`);
+      if (this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`)) this.pillPos = '';
       this.positionButton();
     }
 
@@ -298,7 +370,7 @@
       if (!pill) return;
       const PILL = 56;
       const GAP = 8;
-      const group = MT.dom.controlBarAnchor()?.group;
+      const group = MT.dom.controlGroup();
       const leave = MT.dom.leaveButton();
       let left;
       let top;
@@ -316,12 +388,11 @@
         left = innerWidth - 16 - PILL;
         top = (leave ? leave.getBoundingClientRect().top : innerHeight - 72) - GAP - PILL;
       }
+      const pos = `${Math.round(left)}|${Math.round(top)}`;
+      if (pos === this.pillPos) return;
+      this.pillPos = pos;
       pill.style.left = `${Math.round(left)}px`;
       pill.style.top = `${Math.round(top)}px`;
-    }
-
-    tick() {
-      this.render('tick');
     }
 
     // ---------- interaction ----------
@@ -417,6 +488,12 @@
         e.target.click();
       }
     }
+  }
+
+  function fromHtml(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.firstElementChild;
   }
 
   MT.Sidebar = Sidebar;

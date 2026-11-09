@@ -20,10 +20,41 @@
     return (el.textContent || '').trim();
   }
 
+  // ---------- caching ----------
+  // Document-wide scans are the expensive part of every poll and render (Meet's page holds hundreds of icons).
+  // Two measures keep them rare:
+  // - one icon scan per synchronous task: a poll or a render asks for several ligatures in a row, and the list
+  //   is dropped in a macrotask so nothing stale survives an `await`;
+  // - resolved anchors (Leave button, stage, panel slot, …) are kept while they are still connected and still
+  //   look the same; Meet rebuilds parts of its UI, so a stale node is simply re-resolved.
+  let iconList = null;
+
+  function allIcons() {
+    if (!iconList) {
+      iconList = [...document.querySelectorAll(S.icon)];
+      setTimeout(() => { iconList = null; }, 0);
+    }
+    return iconList;
+  }
+
+  const anchors = new Map();
+
+  function cached(key, find, valid = (el) => el.isConnected) {
+    const el = anchors.get(key);
+    if (el && valid(el)) return el;
+    const found = find() || null;
+    if (found) anchors.set(key, found);
+    else anchors.delete(key);
+    return found;
+  }
+
+  const hasIcon = (ligature) => (btn) => btn.isConnected && [...btn.querySelectorAll(S.icon)].some((i) => iconText(i) === ligature);
+
   // Buttons whose Material icon ligature equals `ligature`.
   function buttonsByIcon(ligature, scope = document) {
     const out = [];
-    for (const i of scope.querySelectorAll(S.icon)) {
+    const icons = scope === document ? allIcons() : scope.querySelectorAll(S.icon);
+    for (const i of icons) {
       if (iconText(i) !== ligature) continue;
       const btn = i.closest('button, [role="button"]');
       if (btn && !out.includes(btn)) out.push(btn);
@@ -40,7 +71,7 @@
   }
 
   function leaveButton() {
-    return buttonsByIcon(L.callEnd)[0] || buttonByJsname(S.leaveButtonJsname);
+    return cached('leave', () => buttonsByIcon(L.callEnd)[0] || buttonByJsname(S.leaveButtonJsname), hasIcon(L.callEnd));
   }
 
   function isInCall() {
@@ -49,13 +80,13 @@
 
   // The "Captions and translation" control-bar button that opens the captions popup (newer Meet UI).
   function captionsMenuButton() {
-    return buttonsByIcon(L.ccMenu)[0] || null;
+    return cached('ccMenu', () => buttonsByIcon(L.ccMenu)[0], hasIcon(L.ccMenu));
   }
 
   // "Send a reaction" in the control bar. Its aria-pressed tells whether Meet means to show the reactions bar;
   // it stays "true" while the captions popup temporarily takes the bar's slot, and Meet persists it across calls.
   function reactionsButton() {
-    return buttonsByIcon(L.reactions)[0] || buttonByJsname(S.reactionsButtonJsname);
+    return cached('reactions', () => buttonsByIcon(L.reactions)[0] || buttonByJsname(S.reactionsButtonJsname), hasIcon(L.reactions));
   }
 
   function reactionsWanted() {
@@ -190,8 +221,7 @@
 
   // Meet's video stage (the <main> that holds participant tiles).
   function stage() {
-    const tile = document.querySelector('[data-participant-id]');
-    return tile?.closest('main') || null;
+    return cached('stage', () => document.querySelector('[data-participant-id]')?.closest('main'));
   }
 
   // Own display name, read from the self-view tile (the only tile with reframe / effects buttons).
@@ -207,6 +237,11 @@
       }
     }
     return null;
+  }
+
+  // Meet's right-hand control group (chat, people, …), next to which the panel button sits.
+  function controlGroup() {
+    return cached('controlGroup', () => controlBarAnchor()?.group, (el) => el.isConnected && el.offsetWidth > 0);
   }
 
   // Where to insert our control-bar button: before the first panel toggle of the right-hand group.
@@ -235,7 +270,7 @@
   // Meet's slot for its own side panels (chat, people, …): the parent of the native panel, which stays in the
   // DOM parked past the right edge while closed.
   function sidePanelSlot() {
-    return first(document, S.nativePanel)?.parentElement || null;
+    return cached('panelSlot', () => first(document, S.nativePanel)?.parentElement);
   }
 
   // The box Meet gives its side panels, as fixed-position insets. Read from Meet's layout targets (inline
@@ -287,6 +322,6 @@
     reactionsButton, reactionsWanted,
     liveCaptionsToggle, findRegion, parseBlocks,
     captionRoot, languageCombobox, languageLabel, isUkrainian, meetingCode, meetingTitle, selfName,
-    controlBarAnchor, sidePanelSlot, sidePanelBox, stage, stageSize,
+    controlBarAnchor, controlGroup, sidePanelSlot, sidePanelBox, stage, stageSize,
   };
 })(globalThis);

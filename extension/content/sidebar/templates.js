@@ -73,18 +73,26 @@
     return `<div class="mt-seg${isLive ? ' is-live' : ''}" data-id="${esc(entry.id)}">${time}${highlight(entry.text, query)}</div>`;
   }
 
-  function turn(tr, query, liveId) {
-    const isLiveTurn = tr.entries.some((e) => e.id === liveId);
+  // A turn is rendered in three parts so the live sidebar can patch them separately: the shell (avatar, container),
+  // the head (speaker, time) and one segment per entry. `turn()` composes them for static renders (mockup).
+  function turnHead(tr, liveId) {
     const lastIsLive = tr.entries[tr.entries.length - 1].id === liveId;
     const timeLabel = lastIsLive && tr.entries.length === 1 ? `<span class="mt-live-label">${t.now}</span>` : formatTime(tr.startedAt);
+    return `<div class="mt-turn-head"><span class="mt-speaker">${esc(tr.speaker)}</span><span class="mt-time">${timeLabel}</span></div>`;
+  }
+
+  function turnShell(tr, inner = '', isLiveTurn = false) {
     return `
       <article class="mt-turn${isLiveTurn ? ' has-live' : ''}" data-turn="${esc(tr.entries[0].id)}">
         <div class="mt-avatar" style="background:${avatarColor(tr.speaker)}" aria-hidden="true">${esc(initials(tr.speaker))}</div>
-        <div class="mt-turn-main">
-          <div class="mt-turn-head"><span class="mt-speaker">${esc(tr.speaker)}</span><span class="mt-time">${timeLabel}</span></div>
-          ${tr.entries.map((e, i) => segment(e, query, e.id === liveId, i > 0)).join('')}
-        </div>
+        <div class="mt-turn-main">${inner}</div>
       </article>`;
+  }
+
+  function turn(tr, query, liveId) {
+    const isLiveTurn = tr.entries.some((e) => e.id === liveId);
+    const inner = turnHead(tr, liveId) + tr.entries.map((e, i) => segment(e, query, e.id === liveId, i > 0)).join('');
+    return turnShell(tr, inner, isLiveTurn);
   }
 
   function empty(kind) {
@@ -180,5 +188,8 @@
       </div>`;
   }
 
-  MT.tpl = { panel, header, meta, search, banner, body, listInner, turn, segment, empty, footer, menu, snackbar, controlButton, statusChip };
+  MT.tpl = {
+    panel, header, meta, search, banner, body, listInner, turn, turnShell, turnHead, segment, empty, footer, menu, snackbar,
+    controlButton, statusChip,
+  };
 })(globalThis);
