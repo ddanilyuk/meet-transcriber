@@ -28,13 +28,18 @@ npm run dev
   - `speed=1..8` — scenario speed;
   - `cc=on` — captions are on from the start, otherwise the extension has to turn them on;
   - `autoplay=0` — the scenario does not start by itself;
-  - `prejoin=1` — the page starts on a "Ready to join?" screen without call controls; "Join now" opens the call. This is how the "outside a call" state is tested.
+  - `prejoin=1` — the page starts on a "Ready to join?" screen without call controls; "Join now" opens the call. This is how the "outside a call" state is tested;
+  - `ccmenu=1` — the newer control bar with the "Captions and translation" popup instead of the one-click CC button;
+  - `reactions=0` — start without Meet's reactions bar (by default it is shown, as Meet persists it for the user);
+  - `reactionsbug=1` — the simulator drops the reactions bar after the captions popup closes; the extension must bring it back (`reactions bar shown` in the log, `reactionsRestored: true` in the console).
 - The "Harness" panel at the top left:
   - ▶/⏸ and speed;
   - **re-render region** — clones the region the way Meet does; there must be no duplicates;
   - **leave call** — the "You left the meeting" screen;
   - **reset storage** — clears the shim storage;
-  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). With "Субтитри на екрані" off, the band must collapse to 0 px.
+  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). With "Субтитри на екрані" off, the band must collapse to 0 px;
+  - **reactions bar** — shows/hides the bar above the controls; `<main>` gets `bottom: 136px` / `88px` and the panel must follow (`--mt-bottom`);
+  - **native panel** — opens Meet's own chat panel (`aside.R3Gmyc`); `<main>` gets `right: 392px` and our panel must move left of it (`--mt-right: 392px`), shrinking the stage further.
 - `http://localhost:8765/dev/archive.html` — the archive on the same storage.
 - `http://localhost:8765/design/mockup.html` — every sidebar state.
 
@@ -49,8 +54,9 @@ window.__downloads.map(d => d.filename)
 ```
 
 Harness limitations:
-- it has no `<main>`, so shrinking the stage is not tested;
-- it lacks Meet's real behavior: space reserved for captions, the responsive control bar, rAF rendering. These are tested only in a real call.
+- it lacks Meet's real behavior: space reserved for captions, the responsive control bar, rAF rendering, the tile layout model (the stage is scaled, but the tiles are a plain grid). These are tested only in a real call.
+
+Render cost check (with the panel open and the scenario playing), run in the console for 5 s: wrap `MT.sidebar.renderList`, `MT.tpl.segment`, `Document.prototype.querySelectorAll` and `Element.prototype.getBoundingClientRect` with counters. Reference values at 1.2.0 for `?speed=4&cc=on`: about 15 document-wide `querySelectorAll`, 10 `getBoundingClientRect`, 30–40 segment builds and no full `render()` calls per 5 s (1.1.4: 289 / 336 / 182 turn builds / 24 renders).
 
 ## 3. Real E2E through Claude in Chrome
 

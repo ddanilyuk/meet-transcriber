@@ -130,6 +130,31 @@ had the old one-click CC button at the same time, so the rollout is per meeting 
   `closed_caption_off`, waiting for the region and closing the popup with the menu button (`captions.enableCaptions()`);
   `remeasure()` goes through the popup the same way.
 
+## Reactions bar and the slot above the controls (live recon, 2026-11-09)
+Checked in an ad-hoc call with the new control bar (`translate_cc` button), while investigating a report that the
+reactions bar disappears after joining.
+- **"Send a reaction"** is `button[jsname="G0pghc"]` with icon `mood`. Its `aria-pressed` is `"true"` while Meet means
+  to show the reactions bar, and Meet **persists it across calls**: after a reload and "Join now" the bar comes back by
+  itself about 1.5 s after the call UI appears.
+- **One slot for two dialogs.** `div[jsname="TUXR0d"].gPfPb` above the control bar holds either the reactions bar
+  (`role="dialog"`, aria-label "Send a reaction", 48 px) or the captions popup (aria-label "Captions and translation").
+  With neither it is a 16 px empty div without `role`. Opening the captions popup replaces the bar; closing the popup
+  with the menu button brings the bar back (also when the popup is closed and reopened 200 ms later), and
+  `aria-pressed` stays `"true"` the whole time.
+- **Layout targets:** with the bar or the popup shown, `<main>` has `inset: 64px 16px 136px` and the side-panel slot
+  `bottom: 128px`; without them `88px` / `80px`. This is where the panel's `--mt-bottom` 136 ↔ 88 comes from.
+- A synthetic `KeyboardEvent` for the `c` shortcut does nothing (Meet checks `isTrusted`), so the popup stays the only
+  way to toggle captions in the new UI.
+- **Not reproduced:** in 5 visible-tab runs (auto-enable, `remeasure()` replay, fast reopen) the bar always came back.
+  It did vanish once during a test where captions were switched off by hand and the extension re-enabled them within
+  the same second: afterwards the popup was left open and `aria-pressed` had become `"false"`; the exact interleaving
+  is unknown. A hidden-tab run (CSS transitions do not advance there) was not done. Since 1.2.0 every popup round trip
+  is logged (`captions popup round trip {...}`), the extension does not act while the popup is open, closing is
+  confirmed before a second click, and the bar is reopened through its button if it was on before and is gone 1.5 s
+  after.
+- **Pre-join after reload:** a reload of `/meet/<code>` shows "Ready to join?" first; the call UI (and the Leave button)
+  appears only after "Join now". `/new` still joins at once.
+
 ## Picture-in-picture window (live recon, 2026-11-09)
 Meet's "More options → Open picture-in-picture" (and the automatic PiP when the user leaves the tab) uses the
 Document Picture-in-Picture API: `documentPictureInPicture.window` is a separate same-origin document (≈411×774)

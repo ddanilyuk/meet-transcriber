@@ -11,6 +11,12 @@
     ccMenu: params.get('ccmenu') === '1',
     language: 'English',
     inCall: true,
+    // Meet persists the reactions bar across calls; the user who reported the bug has it on. `?reactions=0` starts
+    // without it, `?reactionsbug=1` makes the simulator "forget" the bar after the captions popup closes (the
+    // failure seen once in the real Meet) so the extension's guard can be exercised.
+    reactions: params.get('reactions') !== '0',
+    reactionsBug: params.get('reactionsbug') === '1',
+    nativePanel: false,
     log: [],
   });
 
@@ -37,15 +43,21 @@
     document.body.insertAdjacentHTML('afterbegin', `
       <div class="sim-stage" id="sim-stage">
         <div class="sim-top"><span>14:32</span><span class="sep"></span><span jsname="NeC6gb">Щотижневий синк команди</span></div>
-        <div class="sim-grid">
-          <div class="sim-tile" data-participant-id="p1"><div class="sim-av">О</div><span class="notranslate">Олена Коваль</span></div>
-          <div class="sim-tile" data-participant-id="p2"><div class="sim-av">А</div><span class="notranslate">Андрій Мельник</span></div>
-          <div class="sim-tile" data-participant-id="p3"><div class="sim-av">І</div><span class="notranslate">Ірина Шевчук</span></div>
-          <div class="sim-tile" data-participant-id="p0">
-            <div class="sim-av">D</div><span class="notranslate">Denys Danyliuk</span>
-            <div class="sim-self-tools"><button aria-label="Reframe">${icon('frame_person')}</button><button aria-label="Apply visual effects">${icon('visual_effects')}</button></div>
+        <main class="axUSnc sim-main" style="inset: 64px 16px 136px;">
+          <div class="sim-grid">
+            <div class="sim-tile" data-participant-id="p1"><div class="sim-av">О</div><span class="notranslate">Олена Коваль</span></div>
+            <div class="sim-tile" data-participant-id="p2"><div class="sim-av">А</div><span class="notranslate">Андрій Мельник</span></div>
+            <div class="sim-tile" data-participant-id="p3"><div class="sim-av">І</div><span class="notranslate">Ірина Шевчук</span></div>
+            <div class="sim-tile" data-participant-id="p0">
+              <div class="sim-av">D</div><span class="notranslate">Denys Danyliuk</span>
+              <div class="sim-self-tools"><button aria-label="Reframe">${icon('frame_person')}</button><button aria-label="Apply visual effects">${icon('visual_effects')}</button></div>
+            </div>
           </div>
+        </main>
+        <div class="fJsklc Didmac ZmuLbd nulMpf Y7BRKe CZ5y7b" id="sim-panel-slot" style="right: 0px; top: 52px; bottom: 128px;">
+          <aside class="R3Gmyc WSJBnb qdulke P9KVBf" aria-label="Side panel" jsname="ME4pNd"><div class="sim-aside-title">In-call messages</div></aside>
         </div>
+        <div class="gPfPb" jsname="TUXR0d" id="sim-slot"></div>
         <div class="fJsklc nulMpf Didmac G03iKb hLkVuf" id="sim-caption-root">
           <div class="a4cQT P9KVBf"><div class="NmXUuc P9KVBf IGXezb"><div class="qUPVAc">
             <div role="combobox" aria-label="Meeting language" jsname="oYxtQd" class="sim-combo" tabindex="0" aria-expanded="false">${icon('language')}<span class="sim-lang">English</span>${icon('arrow_drop_down')}</div>
@@ -60,6 +72,7 @@
         <div class="sim-controls" role="region" aria-label="Call controls">
           <button aria-label="Turn off microphone" class="sim-btn">${icon('mic')}</button>
           <button aria-label="Turn off camera" class="sim-btn">${icon('videocam')}</button>
+          <button aria-label="Send a reaction" jsname="G0pghc" aria-pressed="${sim.reactions}" class="sim-btn" id="sim-reactions">${icon('mood')}</button>
           ${sim.ccMenu
             ? `<button aria-label="Captions and translation" aria-haspopup="dialog" aria-pressed="false" class="sim-btn sim-cc" id="sim-ccmenu">${icon('translate_cc')}</button>`
             : `<button aria-label="Turn on captions" jsname="RrG0hf" class="sim-btn sim-cc" id="sim-cc">${icon('closed_caption_off')}</button>`}
@@ -77,7 +90,11 @@
 
     $('#sim-cc')?.addEventListener('click', () => setCaptions(!sim.captionsOn));
     $('#sim-ccmenu')?.addEventListener('click', toggleCaptionsPopup);
+    $('#sim-reactions').addEventListener('click', () => setReactions(!sim.reactions));
     $('#sim-end').addEventListener('click', leaveCall);
+    $('.sim-rbtn[aria-label="Chat with everyone"]').addEventListener('click', () => setNativePanel(!sim.nativePanel));
+    renderBottomSlot();
+    applyInsets();
     const combo = $('.sim-combo');
     const listbox = $('.sim-listbox');
     combo.addEventListener('click', () => {
@@ -108,18 +125,67 @@
     return $('#sim-dsyhDe [role="region"]');
   }
 
-  // The popup sits in the slot above the controls (Meet shares it with the reactions bar) and exists only
-  // while open. "Live captions" and "Translate speech" are both button[jsname=RrG0hf].
+  // The slot above the controls (`[jsname=TUXR0d]`) shows either the reactions bar or the captions popup, both as
+  // role=dialog; the popup replaces the bar while open and Meet brings the bar back afterwards. The popup's
+  // "Live captions" and "Translate speech" are both button[jsname=RrG0hf]. Meet writes the layout it means to
+  // reach into inline styles: <main> bottom 136 px with the bar, 88 px without; the side-panel slot 128 / 80.
+  function renderBottomSlot() {
+    const slot = $('#sim-slot');
+    if (!slot) return;
+    if (sim.popupOpen) {
+      slot.setAttribute('role', 'dialog');
+      slot.setAttribute('aria-label', 'Captions and translation');
+      slot.innerHTML = `<div class="sim-popup">
+        <div jsname="wOezY"><button jsname="RrG0hf" class="sim-chip" id="sim-livecc"></button></div>
+        <div jsname="zRRQAf"><button jsname="RrG0hf" class="sim-chip" aria-label="Turn on speech translation">${icon('translate_spark')}Translate speech</button></div>
+      </div>`;
+      $('#sim-livecc').addEventListener('click', () => setCaptions(!sim.captionsOn));
+      renderLiveToggle();
+    } else if (sim.reactions) {
+      slot.setAttribute('role', 'dialog');
+      slot.setAttribute('aria-label', 'Send a reaction');
+      slot.innerHTML = `<div class="sim-reactions">${['💖', '👍', '🎉', '👏', '😂', '😮', '😢', '🤔', '👎'].map((e) => `<button class="sim-emoji" aria-label="Send ${e}">${e}</button>`).join('')}</div>`;
+    } else {
+      slot.removeAttribute('role');
+      slot.removeAttribute('aria-label');
+      slot.innerHTML = '';
+    }
+    $('#sim-reactions')?.setAttribute('aria-pressed', String(sim.reactions));
+  }
+
+  function applyInsets() {
+    const bottom = sim.reactions || sim.popupOpen ? 136 : 88;
+    const main = $('main.sim-main');
+    if (main) main.style.inset = sim.nativePanel ? `64px 392px ${bottom}px 16px` : `64px 16px ${bottom}px`;
+    const slot = $('#sim-panel-slot');
+    if (slot) slot.style.bottom = `${bottom - 8}px`;
+  }
+
   function toggleCaptionsPopup() {
-    const open = $('#sim-ccpopup');
-    sim.log.push(open ? 'captions popup closed' : 'captions popup opened');
-    if (open) return open.remove();
-    $('.sim-controls').insertAdjacentHTML('beforebegin', `<div role="dialog" aria-label="Captions and translation" jsname="TUXR0d" id="sim-ccpopup" class="sim-popup">
-      <div jsname="wOezY"><button jsname="RrG0hf" class="sim-chip" id="sim-livecc"></button></div>
-      <div jsname="zRRQAf"><button jsname="RrG0hf" class="sim-chip" aria-label="Turn on speech translation">${icon('translate_spark')}Translate speech</button></div>
-    </div>`);
-    $('#sim-livecc').addEventListener('click', () => setCaptions(!sim.captionsOn));
-    renderLiveToggle();
+    sim.popupOpen = !sim.popupOpen;
+    sim.log.push(sim.popupOpen ? 'captions popup opened' : 'captions popup closed');
+    if (!sim.popupOpen && sim.reactionsBug && sim.reactions) {
+      sim.reactions = false;
+      sim.log.push('reactions bar lost (simulated bug)');
+    }
+    renderBottomSlot();
+    applyInsets();
+  }
+
+  function setReactions(on) {
+    sim.reactions = on;
+    sim.log.push(on ? 'reactions bar shown' : 'reactions bar hidden');
+    renderBottomSlot();
+    applyInsets();
+  }
+
+  // Meet's own side panel (chat): the aside slides in from past the right edge and <main> gets right: 392px.
+  function setNativePanel(open) {
+    sim.nativePanel = open;
+    const aside = $('aside.R3Gmyc');
+    aside.classList.toggle('qdulke', !open);
+    sim.log.push(open ? 'native panel opened' : 'native panel closed');
+    applyInsets();
   }
 
   function renderLiveToggle() {
@@ -280,6 +346,8 @@
   };
   sim.pause = () => { sim.playing = false; };
   sim.setCaptions = setCaptions;
+  sim.setReactions = setReactions;
+  sim.setNativePanel = setNativePanel;
   sim.leave = leaveCall;
   sim.lastBlock = lastBlock;
 

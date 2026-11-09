@@ -12,13 +12,25 @@
   .sim-stage { position: fixed; inset: 0; }
   .sim-top { position: absolute; left: 24px; top: 20px; display: flex; gap: 12px; align-items: center; font: 400 18px/24px "Google Sans", Roboto, sans-serif; }
   .sim-top .sep { width: 1px; height: 18px; background: #5f6368; }
-  .sim-grid { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 312px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  /* Meet's stage: <main> with its target insets inline (see docs/meet-dom.md), animated like Meet does. */
+  main.sim-main { position: absolute; transition: top 0.5s cubic-bezier(0.4, 0, 0.2, 1), right 0.5s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1), left 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+  .sim-grid { position: absolute; left: 0; right: 0; top: 0; bottom: 176px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  /* Side-panel slot and Meet's own panel (chat), parked past the right edge while closed. */
+  #sim-panel-slot { position: absolute; width: 376px; padding: 12px 16px 8px 0; box-sizing: border-box; pointer-events: none; transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+  .R3Gmyc { width: 360px; height: 100%; border-radius: 20px; background: #202124; pointer-events: auto; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+  .R3Gmyc.qdulke { transform: translateX(376px); }
+  .sim-aside-title { padding: 20px 24px; font: 400 18px/24px "Google Sans", Roboto, sans-serif; }
+  /* Slot above the controls: the reactions bar or the captions popup. */
+  #sim-slot { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); display: flex; justify-content: center; min-width: 616px; }
+  .sim-reactions { display: flex; gap: 4px; height: 48px; align-items: center; padding: 0 8px; border-radius: 24px; background: #202124; }
+  .sim-emoji { width: 40px; height: 40px; border: 0; border-radius: 20px; background: transparent; font-size: 22px; cursor: pointer; }
+  .sim-emoji:hover { background: #ffffff14; }
   .sim-tile { position: relative; background: #3c4043; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
   .sim-tile .notranslate { position: absolute; left: 16px; bottom: 10px; }
   .sim-av { width: 72px; height: 72px; border-radius: 50%; background: #5f6368; display: flex; align-items: center; justify-content: center; font-size: 32px; }
   .sim-self-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
   .sim-self-tools button { background: #0006; border: 0; color: #fff; border-radius: 16px; width: 32px; height: 32px; }
-  .fJsklc { position: absolute; left: 0; right: 0; bottom: 88px; height: 216px; }
+  #sim-caption-root { position: absolute; left: 0; right: 0; bottom: 88px; height: 216px; }
   .a4cQT { position: absolute; left: 32px; top: 0; z-index: 2; }
   .sim-combo { display: inline-flex; gap: 6px; align-items: center; height: 32px; padding: 0 8px; border-radius: 16px; background: #282a2c; cursor: pointer; }
   .sim-combo .google-symbols { font-size: 18px; }
@@ -36,7 +48,7 @@
   .sim-btn { width: 48px; height: 48px; border-radius: 24px; border: 0; background: #333537; color: #e3e3e3; cursor: pointer; }
   .sim-cc { width: 56px; border-radius: 12px; }
   .sim-cc.is-on { background: #a8c7fa; color: #062e6f; }
-  .sim-popup { position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); display: flex; gap: 8px; padding: 4px; border-radius: 24px; background: #3c4043; }
+  .sim-popup { display: flex; gap: 8px; padding: 4px; border-radius: 24px; background: #3c4043; }
   .sim-chip { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px; border: 0; border-radius: 20px; background: #5f6368; color: #e8eaed; cursor: pointer; }
   .sim-end { width: 72px; background: #db372d; color: #fff; }
   .sim-right { position: absolute; right: 16px; bottom: 16px; height: 56px; padding: 0 4px; border-radius: 32px; background: #1e1f20; display: flex; align-items: center; }
@@ -66,6 +78,8 @@
   </div>
   <div class="row">
     <button data-dev="pip">picture-in-picture</button>
+    <button data-dev="reactions">reactions bar</button>
+    <button data-dev="panel">native panel</button>
   </div>
   <div id="dev-log"></div>
 </div>
@@ -121,6 +135,8 @@
     if (action === 'rerender') meetSim.rerender();
     if (action === 'leave') meetSim.leave();
     if (action === 'pip') meetSim.openPip();
+    if (action === 'reactions') meetSim.setReactions(!meetSim.reactions);
+    if (action === 'panel') meetSim.setNativePanel(!meetSim.nativePanel);
     if (action === 'reset') { await window.__shimResetStorage(); location.reload(); }
   });
   setInterval(() => { document.getElementById('dev-log').textContent = meetSim.log.slice(-8).join('\n'); }, 500);

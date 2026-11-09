@@ -45,9 +45,9 @@
       dom().reactionsButton()?.click();
       reactionsRestored = !!(await waitFor(() => dom().reactionsWanted(), 1000));
     }
-    console.info('[meet-transcriber] captions popup round trip', {
+    console.info('[meet-transcriber] captions popup round trip', JSON.stringify({
       on, opened, toggled: !!toggle, done, closed, reactionsBefore, reactionsAfter: dom().reactionsWanted(), reactionsRestored,
-    });
+    }));
     return done;
   }
 

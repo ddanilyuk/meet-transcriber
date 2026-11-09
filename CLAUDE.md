@@ -39,7 +39,8 @@ While `npm run dev` runs:
 - `/dev/harness.html` — Meet simulator (DOM copied 1:1 from the live recon) that loads the content scripts
   listed in `manifest.json` with a `chrome.*` shim; query params `?speed=4`, `?cc=on`, `?autoplay=0`,
   `?prejoin=1` (start on a "Ready to join?" screen without call controls), `?ccmenu=1` (the newer "Captions and
-  translation" popup instead of the one-click CC button).
+  translation" popup instead of the one-click CC button), `?reactions=0` (start without Meet's reactions bar),
+  `?reactionsbug=1` (the simulator drops the reactions bar after the captions popup closes, to exercise the guard).
 - `/dev/archive.html` — the archive page on the same shim storage as the harness.
 - `/design/mockup.html` — every sidebar state rendered with the real templates and CSS.
 - `/__version` — hash of `extension/`; the unpacked extension reloads itself when it changes (`background/dev-reload.js`).
@@ -73,8 +74,11 @@ Key pieces and the non-obvious reasons behind them:
   paragraph entries at pauses, re-anchors offsets on truncation, and lets a re-rendered block *adopt* the entries of a
   recently released one (otherwise history is duplicated). This is the most test-covered file; change it test-first.
 - `content/session.js` — call lifecycle (in call ⇔ a button with the `call_end` icon exists; left after 3 missed polls),
-  resume of the same record after reload/quick rejoin, auto CC + Ukrainian once per session, status for the UI,
-  `reclaimSpaceSoon()` (see below). Titles follow `document.title` only when it changes, so archive renames survive.
+  resume of the same record after reload/quick rejoin, auto CC (immediately on join, retries spaced by `CC_RETRY_MS`,
+  never while Meet's captions popup is open) + Ukrainian once per session, status for the UI, `reclaimSpaceSoon()`
+  (see below). Titles follow `document.title` only when it changes, so archive renames survive. In the new Meet UI
+  captions are toggled through a popup that shares its slot with the reactions bar: `captions-control.js` waits for
+  the popup to really close and brings the reactions bar back if Meet dropped it (`docs/meet-dom.md`).
 - `content/page.css` (manifest `css`, bypasses page CSP) — collapses the captions overlay. Meet measures the overlay
   **when captions are switched on** and reserves that height under the video; hiding it later does not give the space
   back. The `:has([jsname="dsyhDe"])` rule collapses it before Meet measures; if space is still reserved,
@@ -83,9 +87,13 @@ Key pieces and the non-obvious reasons behind them:
   document with its own captions band that `page.css` does not reach; `captions.syncPip()` adds a `<style>` and the
   same html class there (on `documentPictureInPicture` `enter` and every session poll). Recording keeps reading the
   main document.
-- `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes and the list is reconciled
-  per speaker turn (live captions update ~3×/s). Panel and button exist only while `Sidebar.inCall()` (active
-  session + Meet's Leave button) — never on the Meet home page, the pre-join screen or after leaving. The panel
+- `content/sidebar/` — panel in a shadow root; slots re-render only when their HTML changes. Transcript events
+  (live captions update ~3×/s) re-render only the list, reconciled per speaker turn and per segment (an unchanged
+  entry keeps the same text string, so nothing is rebuilt for it); the footer and the control-bar pill are patched
+  in place. `MT.dom` caches its anchors (Leave button, stage, slot, control group) and shares one icon scan per
+  task, so the 1 s tick only repositions the pill. Panel and button exist only while `Sidebar.inCall()` (active
+  session + `session.inCall`, which tolerates `LEAVE_MISSES` polls without Meet's Leave button) — never on the Meet
+  home page, the pre-join screen or after leaving. The panel
   starts closed on every page load and every call and opens only from the button (the open state is not persisted).
   During a call it stays rendered and slides like Meet's own side panels: `.is-open` toggles
   `translateX(100% + right)` → `none` with Meet's 0.5s `cubic-bezier(0.4, 0, 0.2, 1)`. Its box comes from

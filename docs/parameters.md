@@ -41,9 +41,12 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | `SAVE_DEBOUNCE_MS` | 1500 | Debounce for sending `session:update` to the SW. An immediate save also happens on `pagehide` and on ending. |
 | `LEAVE_MISSES` | 3 | How many consecutive polls without the `call_end` button are needed to consider that the user has left. Protects against momentary re-renders. |
 | `NOT_FOUND_MS` | 10000 | How long CC can be on without a found region before the status "Не вдається знайти субтитри" (Can't find captions) appears. This is a sign that the selectors broke. |
-| `ccAttempts` | up to 3 | How many times per session the extension turns CC back on. |
-| `reclaims` | up to 2 | How many times per session the extension toggles CC off/on so that Meet re-measures the collapsed overlay. The user notices this, so the count is limited. |
+| `CC_ATTEMPTS` | 3 | How many times per session the extension turns CC back on. No attempt is made while Meet's captions popup is open: the user is changing something there. |
+| `CC_RETRY_MS` | 8000 | The first attempt runs as soon as the call is detected; later attempts wait this long after the previous one. Lower: captions the user switched off come back sooner (and more annoyingly). |
+| `RECLAIMS_MAX` | 1 | How many times per meeting the extension toggles CC off/on so that Meet re-measures the collapsed overlay. In the new UI this is a popup round trip the user sees, so once. |
+| `RECLAIM_CONFIRM_MS` | 1000 | The reservation must still be there after this long before the toggle runs: Meet's layout settles late after joining. |
 | `reclaimSpaceSoon` delay | 1500 / 600 ms | After the region appears or after "Субтитри на екрані" (Captions on screen) is turned off. |
+| `session.inCall` tolerance | `LEAVE_MISSES` polls | The sidebar hides the panel and the button only when the session says the call is over, so a one-poll rebuild of Meet's control bar does not flash the UI. |
 
 ## Captions control — `content/captions-control.js`
 
@@ -52,6 +55,8 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | `spaceReserved()` threshold | 150 px | Distance from the bottom edge of the stage (`<main>`, the layout box via `offset*`) to the "Leave call" button. Normally it is ~70 px, with space reserved for captions ~280 px. |
 | `setUkrainian()` timeouts | 3000 / 2000 / 2000 ms | Waiting for the combobox, for the `uk-UA` option and for confirmation that the language changed. |
 | `remeasure()` timeouts | 2000 + 300 + 3000 ms | Waits for CC to turn off, pauses, waits for the new region. |
+| `POPUP_CLOSE_MS` | 800 | After clicking the menu button to close the captions popup, how long to wait for it to leave the DOM before clicking once more. Shorter than Meet's close animation would toggle it open again. |
+| `REACTIONS_BACK_MS` | 1500 | After the popup closed, how long Meet gets to bring the reactions bar back (`aria-pressed` of "Send a reaction") before the extension clicks that button itself. Only when the bar was on before the round trip. Every round trip is logged to the console with these states. |
 | `mt-hide-captions` / `data-mt-caption-root` | — | The class on `<html>` and the attribute that `content/page.css` relies on. |
 | `mt-pip-style` | — | Id of the `<style>` added to Meet's picture-in-picture document (`syncPip()`), keyed off the same `mt-hide-captions` class on the PiP `<html>`. Re-checked on PiP `enter` and on every session poll. |
 
@@ -66,6 +71,8 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | stage scale | `(w − 360 − 16) / w`, minimum 0.4 | Shrinks Meet's `<main>` to the left of the panel. `w`/`h` come from `MT.dom.stageSize()`: the container minus the inline insets, i.e. the target size, even while Meet is animating. `translateY` centers the result. |
 | `PILL` / `GAP` | 56 / 8 px | The pill button to the left of Meet's right button group. If less than 12 px is left before the center group, the pill moves above the group. |
 | `AT_BOTTOM_PX` | 48 | Threshold for "the user is at the bottom of the list". Below it: auto-scroll; above it: the "Нові репліки" (New utterances) pill. |
+| `EXIT_MS` | 160 | How long a closing menu, snackbar or "new replies" pill stays in the DOM with `is-closing` for its exit animation (the CSS animations are 120–160 ms). |
+| tick | 1000 ms | Repositions the pill next to Meet's control group and notices when Meet replaced the stage or the panel slot. It works on anchors cached in `MT.dom` and does not re-render the panel; transcript updates re-render only the list. |
 | search debounce | 80 ms | |
 | snackbar | 3000 ms | |
 
