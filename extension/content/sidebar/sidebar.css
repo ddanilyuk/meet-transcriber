@@ -197,7 +197,15 @@ mark.mt-hl { background: var(--mt-highlight); color: inherit; border-radius: 2px
   display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px 0 10px; border: 0; border-radius: 16px;
   background: var(--mt-primary); color: var(--mt-on-primary); font: 500 13px/1 var(--mt-font-display); cursor: pointer;
   box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: mt-pill-in 160ms cubic-bezier(0.2, 0, 0, 1);
 }
+.mt-new-pill.is-closing { animation: mt-pill-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+@keyframes mt-pill-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes mt-pill-out { to { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* A turn that arrives while the list is already on screen fades in; the initial fill does not. */
+.mt-turn.is-new { animation: mt-fade-in 200ms cubic-bezier(0.2, 0, 0, 1); }
+@keyframes mt-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Empty / state screens ---------- */
 .mt-empty {
@@ -235,7 +243,9 @@ mark.mt-hl { background: var(--mt-highlight); color: inherit; border-radius: 2px
   box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
   animation: mt-menu-in 120ms cubic-bezier(0.2, 0, 0, 1);
 }
+.mt-menu.is-closing, .mt-snackbar.is-closing { animation: mt-menu-out 120ms cubic-bezier(0.4, 0, 1, 1) forwards; }
 @keyframes mt-menu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes mt-menu-out { to { opacity: 0; transform: translateY(4px); } }
 .mt-menu-label { padding: 8px 16px 4px; font: 500 12px/16px var(--mt-font); color: var(--mt-on-surface-variant); }
 .mt-menu-item {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 16px; border: 0;
@@ -282,4 +292,15 @@ mark.mt-hl { background: var(--mt-highlight); color: inherit; border-radius: 2px
 }
 .mt-cb-btn.is-open + .mt-cb-indicator { width: 16px; }
 .mt-cb-btn[data-tooltip]::after { bottom: calc(100% + 10px); }
+/* Like Meet's controls: once clicked, no tooltip until the pointer leaves the button. */
+.mt-cb-btn.is-clicked[data-tooltip]::after { display: none; }
+
+/* ---------- Reduced motion ---------- */
+/* The panel slide and the stage scale stay as they are: they mirror Meet's own panel animation and must keep
+   in step with it. Only the extension's own decorative motion is reduced. */
+@media (prefers-reduced-motion: reduce) {
+  .mt-menu, .mt-snackbar, .mt-new-pill, .mt-turn.is-new, .mt-menu.is-closing, .mt-snackbar.is-closing, .mt-new-pill.is-closing { animation-duration: 1ms; }
+  .mt-switch, .mt-switch::before, .mt-cb-btn, .mt-cb-indicator, [data-tooltip]::after { transition: none; }
+  .mt-chip.is-recording .mt-dot, .mt-seg.is-live::after { animation: none; }
+}
 

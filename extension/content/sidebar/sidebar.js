@@ -8,6 +8,7 @@
   const { tpl, util, t } = MT;
 
   const AT_BOTTOM_PX = 48;
+  const EXIT_MS = 160; // exit animations of menu, snackbar and the "new replies" pill (sidebar.css)
   const LAYOUT_KINDS = new Set(['all', 'state', 'open', 'settings']); // render kinds after which geometry may differ
 
   class Sidebar {
@@ -171,10 +172,40 @@
       this.renderSearch(vm);
       this.setSlot('banner', tpl.banner(vm.banner));
       this.renderList(vm);
-      this.setSlot('pill', vm.showNewPill ? `<button class="mt-new-pill" data-action="scroll-bottom">${MT.icon('arrowDown', 18)}${t.newReplies}</button>` : '');
-      this.setSlot('footer', tpl.footer(vm));
-      this.setSlot('menu', tpl.menu(vm));
-      this.setSlot('snackbar', tpl.snackbar(vm.snackbar));
+      this.setSlotAnimated('pill', vm.showNewPill ? newPillHtml() : '');
+      this.renderFooter(vm);
+      this.setSlotAnimated('menu', tpl.menu(vm));
+      this.setSlotAnimated('snackbar', tpl.snackbar(vm.snackbar));
+    }
+
+    // Like setSlot, but an element that goes away first plays its exit animation (`is-closing`, see the CSS).
+    // The slot's recorded HTML becomes '' at once, so a re-render with '' is a no-op and a re-render with new
+    // content cancels the exit and replaces the element immediately.
+    setSlotAnimated(name, html) {
+      if (this.slotHtml[name] === html) return false;
+      const slot = this.slots[name];
+      const leaving = slot.firstElementChild;
+      clearTimeout(this.closeTimers?.[name]);
+      if (!html && leaving && !leaving.classList.contains('is-closing')) {
+        this.slotHtml[name] = '';
+        leaving.classList.add('is-closing');
+        leaving.inert = true;
+        (this.closeTimers ||= {})[name] = setTimeout(() => { if (leaving.parentNode === slot) leaving.remove(); }, EXIT_MS);
+        return true;
+      }
+      return this.setSlot(name, html);
+    }
+
+    // The footer is rendered once; the overlay switch and the active-menu marks are patched on the existing
+    // buttons so their transitions run and keyboard focus stays where it was.
+    renderFooter(vm) {
+      if (!this.slots.footer.firstElementChild) this.setSlot('footer', tpl.footer({ ...vm, menu: null }));
+      const footer = this.slots.footer;
+      const sw = footer.querySelector('[data-action="toggle-overlay"]');
+      if (sw) sw.setAttribute('aria-checked', String(!!vm.settings?.showOverlay));
+      for (const [action, menu] of [['menu-download', 'download'], ['menu-settings', 'settings']]) {
+        footer.querySelector(`[data-action="${action}"]`)?.classList.toggle('is-active', vm.menu === menu);
+      }
     }
 
     // The search field is rendered once so typing never loses focus; only the match counter changes.
@@ -232,14 +263,14 @@
       if (wasAtBottom) this.scrollToBottom();
       else if (grew && !vm.query && !this.showNewPill) {
         this.showNewPill = true;
-        this.setSlot('pill', `<button class="mt-new-pill" data-action="scroll-bottom">${MT.icon('arrowDown', 18)}${t.newReplies}</button>`);
+        this.setSlotAnimated('pill', newPillHtml());
       }
     }
 
     createTurn(tr) {
-      const tmp = document.createElement('div');
-      tmp.innerHTML = tpl.turnShell(tr);
-      const el = tmp.firstElementChild;
+      const el = fromHtml(tpl.turnShell(tr));
+      // Turns added to an already populated list fade in; the initial fill and a cleared search do not.
+      if (this.turnEls.size && !this.query) el.classList.add('is-new');
       return { el, main: el.querySelector('.mt-turn-main'), speaker: tr.speaker, head: null, segs: new Map() };
     }
 
@@ -294,14 +325,14 @@
       this.list.scrollTop = this.list.scrollHeight;
       if (this.showNewPill) {
         this.showNewPill = false;
-        this.setSlot('pill', '');
+        this.setSlotAnimated('pill', '');
       }
     }
 
     onScroll() {
       if (this.showNewPill && this.isAtBottom()) {
         this.showNewPill = false;
-        this.setSlot('pill', '');
+        this.setSlotAnimated('pill', '');
       }
     }
 
@@ -355,13 +386,30 @@
     // buttons (e.g. chat) to make room for foreign ones, then rebuilds and drops them. Instead it is a
     // separate pill styled like Meet's right-hand group, positioned just left of that group.
 
+    // Rendered once per call; the open and recording states are patched on the existing nodes so the indicator
+    // and background transitions run, hover is kept and the tooltip does not re-trigger.
     renderButton() {
       if (!this.inCall()) {
         this.pillPos = '';
         return this.setSlot('fab', '');
       }
       const recording = this.session.status === 'recording';
-      if (this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`)) this.pillPos = '';
+      if (this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`)) {
+        this.pillPos = '';
+        this.btnState = { open: this.open, recording };
+        const btn = this.slots.fab.querySelector('.mt-cb-btn');
+        // Meet hides a control's tooltip once it is clicked, until the pointer leaves it.
+        btn.addEventListener('click', () => btn.classList.add('is-clicked'));
+        btn.addEventListener('pointerleave', () => btn.classList.remove('is-clicked'));
+      } else if (this.btnState.open !== this.open || this.btnState.recording !== recording) {
+        this.btnState = { open: this.open, recording };
+        const btn = this.slots.fab.querySelector('.mt-cb-btn');
+        btn.classList.toggle('is-open', this.open);
+        btn.setAttribute('aria-pressed', String(this.open));
+        let badge = btn.querySelector('.mt-cb-badge');
+        if (recording && !badge) btn.append(Object.assign(document.createElement('span'), { className: 'mt-cb-badge' }));
+        else if (!recording && badge) badge.remove();
+      }
       this.positionButton();
     }
 
@@ -494,6 +542,10 @@
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
     return tmp.firstElementChild;
+  }
+
+  function newPillHtml() {
+    return `<button class="mt-new-pill" data-action="scroll-bottom">${MT.icon('arrowDown', 18)}${t.newReplies}</button>`;
   }
 
   MT.Sidebar = Sidebar;
