@@ -394,14 +394,17 @@
         return this.setSlot('fab', '');
       }
       const recording = this.session.status === 'recording';
-      if (this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: this.open, recording })}</div>`)) {
+      // Always the same baseline markup, so a state change never re-creates the pill (that would restart its
+      // transitions, drop hover and re-trigger the tooltip); the state is patched below.
+      if (this.setSlot('fab', `<div class="mt-cb-float">${tpl.controlButton({ open: false, recording: false })}</div>`)) {
         this.pillPos = '';
-        this.btnState = { open: this.open, recording };
+        this.btnState = { open: false, recording: false };
         const btn = this.slots.fab.querySelector('.mt-cb-btn');
         // Meet hides a control's tooltip once it is clicked, until the pointer leaves it.
         btn.addEventListener('click', () => btn.classList.add('is-clicked'));
         btn.addEventListener('pointerleave', () => btn.classList.remove('is-clicked'));
-      } else if (this.btnState.open !== this.open || this.btnState.recording !== recording) {
+      }
+      if (this.btnState.open !== this.open || this.btnState.recording !== recording) {
         this.btnState = { open: this.open, recording };
         const btn = this.slots.fab.querySelector('.mt-cb-btn');
         btn.classList.toggle('is-open', this.open);
