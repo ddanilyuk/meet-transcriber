@@ -105,13 +105,92 @@
 
   let overlayVisible = true;
 
-  // Main document only. Meet's picture-in-picture window (Document PiP) is a separate document with its own
-  // captions band; it is left alone on purpose: collapsing that band made Meet close its reactions bar for
-  // good, both right after the automatic PiP opened and later while it stayed open (live recon 2026-11-09,
-  // docs/meet-dom.md). Recording reads the main document, which keeps rendering captions while PiP is open.
   function setOverlayVisible(visible) {
     overlayVisible = visible;
     document.documentElement.classList.toggle(HIDE_CLASS, !visible);
+    syncPip();
+  }
+
+  // ---------- picture-in-picture ----------
+  // Meet's picture-in-picture window (Document PiP: "Open picture-in-picture", or automatically when the tab goes
+  // to the background) is a separate document with its own captions band under the tiles, out of page.css's
+  // reach. The captions text is hidden there with `visibility` only: the band keeps the 160 px layout box Meet
+  // gave it. Collapsing the band (1.1.4) was followed by Meet closing its reactions bar after automatic PiP, and
+  // a layout-neutral style is the one change that cannot be what Meet's sizing logic reacts to (docs/meet-dom.md).
+  // Recording reads the main document, which keeps rendering captions while PiP is open.
+  const PIP_STYLE_ID = 'mt-pip-style';
+
+  function pipWindow() {
+    try {
+      const win = root.documentPictureInPicture?.window;
+      return win && !win.closed ? win : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function pipCss() {
+    const content = MT.sel.pipCaptionContent.map((s) => `html.${HIDE_CLASS} ${s}`).join(',\n');
+    return `${content} {\n  visibility: hidden !important;\n}`;
+  }
+
+  // Idempotent: on PiP `enter`, on every settings change and from the session poll (Meet may rebuild the head).
+  function syncPip(doc = pipWindow()?.document) {
+    if (!doc?.documentElement) return;
+    if (!doc.getElementById(PIP_STYLE_ID)) {
+      const style = doc.createElement('style');
+      style.id = PIP_STYLE_ID;
+      style.textContent = pipCss();
+      (doc.head || doc.documentElement).append(style);
+    }
+    doc.documentElement.classList.toggle(HIDE_CLASS, !overlayVisible);
+  }
+
+  // Returns a function that stops watching (for the takeover by a newer content script).
+  function watchPip() {
+    const api = root.documentPictureInPicture;
+    if (!api) return () => {};
+    const onEnter = (e) => {
+      const win = e.window;
+      syncPip(win.document);
+      console.info('[meet-transcriber] pip opened', JSON.stringify({ size: `${win.innerWidth}x${win.innerHeight}`, hidden: document.hidden, reactions: dom().reactionsWanted() }));
+      win.addEventListener('pagehide', () => {
+        console.info('[meet-transcriber] pip closed', JSON.stringify({ hidden: document.hidden, reactions: dom().reactionsWanted() }));
+      }, { once: true });
+    };
+    api.addEventListener('enter', onEnter);
+    syncPip(); // a PiP window already open when this copy of the script starts (takeover)
+    return () => api.removeEventListener('enter', onEnter);
+  }
+
+  // Diagnostics for the intermittent loss of Meet's reactions bar around tab switches: one console.info per flip
+  // of "Send a reaction" (`aria-pressed`, also when Meet re-renders the button) with everything the extension
+  // knows at that moment. `extra()` adds the session's own flags. Returns a function that stops watching.
+  function watchReactions(extra = () => ({})) {
+    let hiddenSince = document.hidden ? Date.now() : null;
+    const onVisibility = () => { hiddenSince = document.hidden ? Date.now() : null; };
+    document.addEventListener('visibilitychange', onVisibility);
+    let last = dom().reactionsWanted();
+    const observer = new MutationObserver(() => {
+      const wanted = dom().reactionsWanted();
+      if (wanted === last) return;
+      last = wanted;
+      const pip = pipWindow();
+      console.info('[meet-transcriber] reactions bar', wanted ? 'on' : 'off', JSON.stringify({
+        hidden: document.hidden,
+        hiddenForMs: hiddenSince ? Date.now() - hiddenSince : 0,
+        pip: pip ? `${pip.innerWidth}x${pip.innerHeight}` : null,
+        popup: !!dom().captionsDialog(),
+        toggling,
+        spaceReserved: spaceReserved(),
+        ...extra(),
+      }));
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed'] });
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }
 
   // True when Meet keeps a band for captions under the video although the overlay is collapsed
@@ -145,5 +224,8 @@
     }
   }
 
-  MT.captions = { enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor };
+  MT.captions = {
+    enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor,
+    syncPip, watchPip, watchReactions,
+  };
 })(globalThis);

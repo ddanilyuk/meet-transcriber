@@ -18,7 +18,7 @@ meet.google.com
     ├── content/selectors.js          all Meet DOM hooks (fallback chains)
     ├── content/meet-dom.js           read-only DOM queries (MT.dom)
     ├── content/caption-tracker.js    MutationObserver → TranscriptBuilder
-    ├── content/captions-control.js   CC, language, overlay collapse (main document only), remeasure
+    ├── content/captions-control.js   CC, language, overlay collapse, PiP captions visibility, remeasure, reactions-bar log
     ├── content/session.js            meeting lifecycle (MT.MeetingSession)
     ├── content/sidebar/templates.js  HTML templates (shared with design/mockup.html)
     ├── content/sidebar/sidebar.js    panel, pill button, stage shrinking

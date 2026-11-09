@@ -37,7 +37,7 @@ npm run dev
   - **re-render region** — clones the region the way Meet does; there must be no duplicates;
   - **leave call** — the "You left the meeting" screen;
   - **reset storage** — clears the shim storage;
-  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). The extension must not touch it: the band keeps its 160 px whatever "Субтитри на екрані" says (collapsing it made Meet drop its reactions bar);
+  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). The band must keep its 160 px whatever "Субтитри на екрані" says (collapsing it was followed by Meet dropping its reactions bar); the copied region is `visibility: hidden` while the toggle is off and visible while it is on. The console shows `pip opened {…}` / `pip closed {…}`, and the **reactions bar** button below produces `reactions bar off {…}` / `on {…}` lines;
   - **reactions bar** — shows/hides the bar above the controls; `<main>` gets `bottom: 136px` / `88px` and the panel must follow (`--mt-bottom`);
   - **native panel** — opens Meet's own chat panel (`aside.R3Gmyc`); `<main>` gets `right: 392px` and our panel must move left of it (`--mt-right: 392px`), shrinking the stage further.
 - `http://localhost:8765/dev/archive.html` — the archive on the same storage.
@@ -93,6 +93,16 @@ Prerequisites:
      - the phrase from before the update appears in the panel once, new phrases are appended;
      - after "Leave" the file contains both phrases;
    - **lost meeting** (open without a tab, e.g. from a version before 1.1.1) → within ~1–3 min of the extension reload at most, `sweep` saves its file; the meeting's end is the time of its last update.
+   - **picture-in-picture** (2026-11-09): "More options" (⋮ in the control bar) → "Open picture-in-picture" opens
+     Meet's Document PiP window the same way the automatic one opens on a tab switch (312×113 growing to the
+     remembered size over ~300 ms), and "Bring the call back here" closes it. This is the way to iterate on
+     anything in the PiP document without asking the user to switch tabs: `documentPictureInPicture.window.document`
+     is reachable from `javascript_tool`. Expected: `#mt-pip-style` present, `<html class="mt-hide-captions">`,
+     `.epgFze` 160 px high, the region inside it `visibility: hidden`, Meet's reactions bar in both documents
+     untouched. What it does **not** cover: the intermittent loss of the reactions bar after real tab switches — that
+     needs the user to switch tabs by hand (Claude in Chrome cannot hide the Meet tab: a new tab opens in the
+     background and `document.hidden` stays `false`), and the `reactions bar off {…}` console line then carries
+     the context;
    - **panel visibility**: the `meet.google.com` home page, the "Join now" screen and "You left the meeting" → `.mt-panel` has `hidden`, there is no `.mt-cb-float` pill, `<html>` has no `mt-panel-open`. In a call, right after joining, the pill is there and the panel is closed (`.mt-panel` without `is-open`, `visibility: hidden`), even if it was open before the reload.
    - **sliding in like Meet's chat** (the tab must be visible; animations stall in the background). Sample `getBoundingClientRect()` of the panel and of `<main>` every ~50 ms after clicking the pill. Expected:
      - within ~0.5 s the panel moves in x from `innerWidth` to `innerWidth − 376`, and the stage width shrinks in sync;
@@ -108,6 +118,8 @@ Prerequisites:
 - **Execution world.** `javascript_tool` runs in the MAIN world: the content script's `MT` and `chrome.runtime` are not available there. Checking `chrome.runtime?.id` in the MAIN world tells you nothing about the extension's state.
 - **Output filter.** Output that looks like tokens or base64 is replaced with "[BLOCKED: …]". Do not return `outerHTML`, long class lists or strings made only of digits.
 - **Extension pages.** `chrome://extensions` and `chrome-extension://…` are not accessible. In the real extension the archive is opened by a button in the sidebar in a new tab outside Claude's tab group, so test it through `dev/archive.html` or ask the user.
+- **Edits need an extension reload, not a page reload.** Chrome keeps the content scripts of an unpacked extension in memory: after editing `extension/`, a reloaded Meet tab still runs the old code until the extension itself reloads (`npm run dev` running and a Meet tab that pings it, or the reload button in `chrome://extensions`). Check with a marker from the edit (a new log line, a new element id) before trusting a test.
+- **Extension console lines.** After the extension reloads itself, `read_console_messages` stops showing the content script's `console.info` lines for that tab (MAIN-world `console.log` from `javascript_tool` still shows). Read them in the user's DevTools, or test the same code in the harness, where everything is page-level.
 - **Navigation.** After an extension auto-reload the Meet tab does not need to be reloaded: the SW injects the new script itself. The exception is a tab loaded with code older than 1.1.1: then the old and new instances coexist (two `#meet-transcriber-root`), and the tab must be reloaded. A long `await` in `javascript_tool` that is still running during a navigation (e.g. a click on "Rejoin") fails with "Inspected target navigated".
 - **Port 8765 in use.** If another process is already listening on 8765, `npm run dev` fails. For the harness and the mockup, `PORT=8766 npm run dev` works: the pages run on any port. The extension's dev-reload expects exactly 8765 (see [parameters.md](parameters.md#dev-tools)).
 - **Window size.** `resize_window` resizes the window but not the tab's viewport if emulation is active on it. This does not work for layout tests.

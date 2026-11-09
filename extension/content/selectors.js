@@ -19,8 +19,9 @@
     captionText: ['.ygicle', '[jsname="tgaKEf"]', '.bh44bd'],
     // Root of the whole captions overlay (region + language bar); hidden with visibility:hidden.
     captionRoot: ['.fJsklc', '[jsname="dsyhDe"]'],
-    // Meet's picture-in-picture document is not touched (docs/meet-dom.md: collapsing its captions band made Meet
-    // drop its reactions bar), so there are no PiP selectors.
+    // Meet's picture-in-picture document: the captions region inside the band under the tiles. Only its
+    // visibility is changed; the band's layout box (`.epgFze`, 160 px) must stay as Meet made it (docs/meet-dom.md).
+    pipCaptionContent: ['.epgFze [jsname="dsyhDe"]', '[jsname="dsyhDe"]'],
 
     ccButtonJsname: ['RrG0hf', 'r8qRAd'],
     // Since 11.2026 the control bar may have a "Captions and translation" button (icon `translate_cc`) that
