@@ -105,81 +105,13 @@
 
   let overlayVisible = true;
 
+  // Main document only. Meet's picture-in-picture window (Document PiP) is a separate document with its own
+  // captions band; it is left alone on purpose: collapsing that band made Meet close its reactions bar for
+  // good, both right after the automatic PiP opened and later while it stayed open (live recon 2026-11-09,
+  // docs/meet-dom.md). Recording reads the main document, which keeps rendering captions while PiP is open.
   function setOverlayVisible(visible) {
     overlayVisible = visible;
     document.documentElement.classList.toggle(HIDE_CLASS, !visible);
-    syncPip();
-  }
-
-  // Meet's picture-in-picture window (Document PiP: the "Open picture-in-picture" menu item, or automatically
-  // when the user switches tabs) is a separate document with its own captions band under the video, so the
-  // manifest's page.css does not apply there. Our recording reads the main document, which keeps rendering
-  // captions, so the band only takes room from the video: give the PiP document the same rule and html class.
-  const PIP_STYLE_ID = 'mt-pip-style';
-
-  function pipDocument() {
-    try {
-      return root.documentPictureInPicture?.window?.document || null;
-    } catch {
-      return null;
-    }
-  }
-
-  function pipCss() {
-    const band = MT.sel.pipCaptionBand.map((s) => `html.${HIDE_CLASS} ${s}`).join(',\n');
-    return `${band} {
-  height: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}`;
-  }
-
-  // Meet opens the automatic PiP window (tab sent to the background) at a stamp size and grows it over ~300 ms;
-  // while it does, it decides whether its reactions bar still fits. With the captions band already collapsed
-  // the decision came out "no" and the bar was closed for good, also in the main window (live recon, see
-  // docs/meet-dom.md). So the band is collapsed only once the PiP window has stopped resizing.
-  const PIP_SETTLE_MS = 1500;
-  const settledPip = new WeakSet(); // PiP documents whose window has settled
-
-  // Idempotent: called when PiP has settled, on every settings change and from the session poll (in case Meet
-  // rebuilds the PiP document's head).
-  function syncPip(doc = pipDocument()) {
-    if (!doc?.documentElement || !settledPip.has(doc)) return;
-    if (!doc.getElementById(PIP_STYLE_ID)) {
-      const style = doc.createElement('style');
-      style.id = PIP_STYLE_ID;
-      style.textContent = pipCss();
-      (doc.head || doc.documentElement).append(style);
-    }
-    doc.documentElement.classList.toggle(HIDE_CLASS, !overlayVisible);
-  }
-
-  function settlePip(win) {
-    if (!win?.document) return;
-    let timer = null;
-    const settle = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (win.closed) return;
-        settledPip.add(win.document);
-        syncPip(win.document);
-      }, PIP_SETTLE_MS);
-    };
-    win.addEventListener('resize', settle);
-    settle();
-  }
-
-  // Returns a function that stops watching (for the takeover by a newer content script).
-  function watchPip() {
-    const api = root.documentPictureInPicture;
-    if (!api) return () => {};
-    const onEnter = (e) => settlePip(e.window);
-    api.addEventListener('enter', onEnter);
-    settlePip(api.window); // a PiP window already open when this copy of the script starts (takeover)
-    return () => api.removeEventListener('enter', onEnter);
   }
 
   // True when Meet keeps a band for captions under the video although the overlay is collapsed
@@ -213,5 +145,5 @@
     }
   }
 
-  MT.captions = { enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, syncPip, watchPip, spaceReserved, remeasure, waitFor };
+  MT.captions = { enableCaptions, busy: () => toggling, setUkrainian, currentLanguage, markRoot, setOverlayVisible, spaceReserved, remeasure, waitFor };
 })(globalThis);

@@ -158,10 +158,11 @@ reactions bar disappears after joining.
   with the captions band already collapsed by the `<style>` the extension added on `enter`, the decision came out
   "no" ~80 ms after `enter` — the main document's "Send a reaction" button was re-rendered with
   `aria-pressed="false"` and the bar was gone for good (`<main>` bottom 88 px, nothing restores it when PiP closes).
-  Without the extension, with the style delayed until the window stopped resizing (`PIP_SETTLE_MS`), and in the
-  manual "Open picture-in-picture" flow (which opens at full size while the tab stays visible) the bar survives.
-  Ruled out on the way: the rAF patch, the sidebar, the captions popup round trips (none were logged). That was the
-  "reactions disappear after I join" report: joining and switching to another window.
+  Without the extension and in the manual "Open picture-in-picture" flow (which opens at full size while the tab
+  stays visible) the bar survives. Delaying the style until the window stopped resizing (1.5 s) survived seven quick
+  tab switches but not a long stay in PiP: Meet re-evaluates the bar later as well, so the PiP document is now left
+  untouched altogether. Ruled out on the way: the rAF patch, the sidebar, the captions popup round trips (none were
+  logged). That was the "reactions disappear after I join" report: joining and switching to another window.
 - **Pre-join after reload:** a reload of `/meet/<code>` shows "Ready to join?" first; the call UI (and the Leave button)
   appears only after "Join now". `/new` still joins at once.
 
@@ -190,6 +191,7 @@ div.zqL4Ue (flex)
 - **Automatic PiP opens small and grows.** On `enter` the window is 312×113 and `resize` events take it to the
   remembered size (here 283×719) over ~300 ms; the captions band starts as `display: none` and gets its
   `height: 160px` ~100 ms in. Meet decides about its own reactions bar (also a `[jsname=TUXR0d]` dialog in the PiP
-  document) during that growth, and a collapsed band at that moment makes it close the bar in both documents (see
-  the reactions section above). Hence `syncPip()` waits for `PIP_SETTLE_MS` without a resize before adding the style.
-  Manual PiP from the menu opens at full size at once, so the same style never caused trouble there.
+  document) during that growth and again later while PiP stays open, and a collapsed band makes it close the bar in
+  both documents (see the reactions section above). Hence the extension no longer adds any style to the PiP
+  document; Meet's captions band stays visible there. Manual PiP from the menu opens at full size at once, which is
+  why the same style never caused trouble in that flow.

@@ -4,7 +4,7 @@
 
 - **Local only.** No external requests or fonts (the "Архів" (Archive) page uses system fonts, the sidebar uses the fonts the Meet page has already loaded). The only network access is `http://localhost:8765` for dev-reload.
 - **No build step, no dependencies.** The extension is loaded from `extension/` as is. Shared code is not imported as modules but registers itself on `globalThis.MT`, so the same file works as a content script, as an import in the service worker and as a module in node tests.
-- **Do not interfere with Meet's DOM.** Our own UI lives in shadow roots. We change Meet only through CSS from the manifest (`content/page.css`) or the `<style>` we add to Meet's picture-in-picture document, marker attributes (`data-mt-caption-root`, `data-mt-stage`) and clicks on its own controls (CC, language).
+- **Do not interfere with Meet's DOM.** Our own UI lives in shadow roots. We change Meet only through CSS from the manifest (`content/page.css`), marker attributes (`data-mt-caption-root`, `data-mt-stage`) and clicks on its own controls (CC, language).
 - **Single writer.** Only the service worker writes to `chrome.storage.local`, through a queue, so concurrent messages do not lose the index.
 
 ## Execution contexts
@@ -18,7 +18,7 @@ meet.google.com
     ├── content/selectors.js          all Meet DOM hooks (fallback chains)
     ├── content/meet-dom.js           read-only DOM queries (MT.dom)
     ├── content/caption-tracker.js    MutationObserver → TranscriptBuilder
-    ├── content/captions-control.js   CC, language, overlay collapse (also in the PiP window), remeasure
+    ├── content/captions-control.js   CC, language, overlay collapse (main document only), remeasure
     ├── content/session.js            meeting lifecycle (MT.MeetingSession)
     ├── content/sidebar/templates.js  HTML templates (shared with design/mockup.html)
     ├── content/sidebar/sidebar.js    panel, pill button, stage shrinking

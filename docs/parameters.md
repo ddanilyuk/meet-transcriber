@@ -58,8 +58,7 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | `POPUP_CLOSE_MS` | 800 | After clicking the menu button to close the captions popup, how long to wait for it to leave the DOM before clicking once more. Shorter than Meet's close animation would toggle it open again. |
 | `REACTIONS_BACK_MS` | 1500 | After the popup closed, how long Meet gets to bring the reactions bar back (`aria-pressed` of "Send a reaction") before the extension clicks that button itself. Only when the bar was on before the round trip. Every round trip is logged to the console with these states. |
 | `mt-hide-captions` / `data-mt-caption-root` | — | The class on `<html>` and the attribute that `content/page.css` relies on. |
-| `PIP_SETTLE_MS` | 1500 | After the PiP window opened (`documentPictureInPicture` `enter`) or last fired `resize`, how long to wait before collapsing its captions band. The automatic PiP opens at 312×113 and grows over ~300 ms; a band collapsed during that growth makes Meet close its reactions bar for good (`docs/meet-dom.md`). Shorter risks the bar again; longer just shows Meet's captions in PiP a little longer. |
-| `mt-pip-style` | — | Id of the `<style>` added to Meet's picture-in-picture document (`syncPip()`), keyed off the same `mt-hide-captions` class on the PiP `<html>`. Added once the window has settled (`PIP_SETTLE_MS`), then re-checked on every settings change and session poll. |
+| (picture-in-picture) | — | Meet's PiP document is deliberately left untouched: collapsing its captions band made Meet close its reactions bar for good (`docs/meet-dom.md`). Nothing to tune there. |
 
 ## Sidebar — `content/sidebar/sidebar.js`, `sidebar.css`
 

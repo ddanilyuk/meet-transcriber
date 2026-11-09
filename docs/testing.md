@@ -37,7 +37,7 @@ npm run dev
   - **re-render region** — clones the region the way Meet does; there must be no duplicates;
   - **leave call** — the "You left the meeting" screen;
   - **reset storage** — clears the shim storage;
-  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). With "Субтитри на екрані" off, the band must collapse to 0 px about 1.5 s after the window opened (`PIP_SETTLE_MS`), not at once;
+  - **picture-in-picture** — opens a Document PiP window shaped like Meet's (video column + captions band with a copy of the region). The extension must not touch it: the band keeps its 160 px whatever "Субтитри на екрані" says (collapsing it made Meet drop its reactions bar);
   - **reactions bar** — shows/hides the bar above the controls; `<main>` gets `bottom: 136px` / `88px` and the panel must follow (`--mt-bottom`);
   - **native panel** — opens Meet's own chat panel (`aside.R3Gmyc`); `<main>` gets `right: 392px` and our panel must move left of it (`--mt-right: 392px`), shrinking the stage further.
 - `http://localhost:8765/dev/archive.html` — the archive on the same storage.
