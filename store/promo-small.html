@@ -10,7 +10,8 @@
     display: flex; flex-direction: column; justify-content: center; padding: 0 36px; box-sizing: border-box;
   }
   .head { display: flex; align-items: center; gap: 16px; }
-  img { width: 64px; height: 64px; }
+  /* icon-128 carries Chrome's 16 px padding: 84 px keeps the artwork ~64 px and its left edge on the text column */
+  img { width: 84px; height: 84px; margin: -10px -6px -10px -10px; }
   h1 { margin: 0; font-size: 30px; font-weight: 500; letter-spacing: -0.2px; color: #fff; }
   p { margin: 18px 0 0; font-size: 17px; line-height: 24px; color: #c4c7c5; }
   .pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; padding: 5px 12px; border-radius: 999px;
