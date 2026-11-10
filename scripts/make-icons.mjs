@@ -1,4 +1,4 @@
-// Renders the extension icons (16/32/48/128 PNG) from the master artwork `design/icon-source.png` without
+// Renders the extension icons (16/32/48/96/128/256 PNG) from the master artwork `design/icon-source.png` without
 // dependencies: the source PNG is decoded with node:zlib, cropped to its opaque content, scaled down with an
 // area (box) filter in premultiplied alpha and encoded again. Chrome's guideline for the 128 px icon is 96 px of
 // artwork with 16 px of transparent padding; the small toolbar sizes use (almost) the whole square to stay legible.
@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 const SOURCE = fileURLToPath(new URL('../design/icon-source.png', import.meta.url));
 const OUT = fileURLToPath(new URL('../extension/icons/', import.meta.url));
-const PADDING = { 16: 0, 32: 1, 48: 2, 128: 16 }; // transparent margin per side, px
+// Transparent margin per side, px. 96 is the 2× of 48 (chrome://extensions on a Retina screen upscaled the 48 px
+// bitmap and looked blurry next to other extensions) and keeps 48's framing; 256 keeps 128's framing for the
+// install dialog and high zoom levels.
+const PADDING = { 16: 0, 32: 1, 48: 2, 96: 4, 128: 16, 256: 32 };
 const ALPHA_CUTOFF = 16; // pixels at or below this alpha do not count as content when cropping
 
 // ---------- PNG decode (8-bit RGBA or RGB, non-interlaced) ----------
