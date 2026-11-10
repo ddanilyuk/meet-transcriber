@@ -16,7 +16,7 @@ npm test                                                    # all unit tests (no
 node --test test/transcript.test.js                         # one file
 node --test --test-name-pattern="head truncation" test/transcript.test.js   # one test by name
 npm run dev                                                 # dev server on http://localhost:8765 (see below)
-npm run icons                                               # regenerate extension/icons/*.png
+npm run icons                                               # render extension/icons/*.png from design/icon-source.png
 npm run store                                               # dist/meet-transcriber-<version>.zip for the Web Store
 npm run store:status                                        # published / submitted versions (Web Store API V2)
 npm run store:publish                                       # build, upload and submit for review (asks first)

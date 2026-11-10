@@ -19,6 +19,7 @@ The goal is a sidebar that looks like a native part of Google Meet 2026. All siz
 | Icons are inline SVG in the Material Symbols style | We do not depend on Meet's icon font and make no external requests. |
 | Fonts `"Google Sans Text", "Google Sans", Roboto` | The Meet page has already loaded them, and the shadow DOM can see them. |
 | Archive in Material 3 style, with light and dark themes | It is a separate page, so it follows `prefers-color-scheme`. There are no external fonts. |
+| Extension icon: plum quote marks with a coral page corner and a caption line (since 1.2.0) | The old blue square with lines looked like any Google app in the toolbar; quotes say "what was said", the page corner says "saved". Master artwork `design/icon-source.png` (1254 px, transparent); `npm run icons` (`scripts/make-icons.mjs`, no dependencies) crops it to its content and renders 16/32/48/128 with an area filter: 16 px full bleed, 128 px with Chrome's 16 px padding (96 px artwork). Reads on light and dark toolbars. To change it, replace the master and rerun the script. |
 
 ## Sidebar tokens (`sidebar.css`, `:host`)
 

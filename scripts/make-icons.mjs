@@ -1,58 +1,142 @@
-// Renders the extension icons (16/32/48/128 PNG) without dependencies: shapes are drawn with signed
-// distance functions, supersampled for anti-aliasing and encoded with node:zlib.
-import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+// Renders the extension icons (16/32/48/128 PNG) from the master artwork `design/icon-source.png` without
+// dependencies: the source PNG is decoded with node:zlib, cropped to its opaque content, scaled down with an
+// area (box) filter in premultiplied alpha and encoded again. Chrome's guideline for the 128 px icon is 96 px of
+// artwork with 16 px of transparent padding; the small toolbar sizes use (almost) the whole square to stay legible.
+import { deflateSync, inflateSync } from 'node:zlib';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+const SOURCE = fileURLToPath(new URL('../design/icon-source.png', import.meta.url));
 const OUT = fileURLToPath(new URL('../extension/icons/', import.meta.url));
-const SIZES = [16, 32, 48, 128];
-const SS = 4; // supersampling factor
+const PADDING = { 16: 0, 32: 1, 48: 2, 128: 16 }; // transparent margin per side, px
+const ALPHA_CUTOFF = 16; // pixels at or below this alpha do not count as content when cropping
 
-const BG = [26, 115, 232]; // Google blue #1a73e8
-const FG = [255, 255, 255];
-const DOT = [238, 103, 92]; // recording red #ee675c
+// ---------- PNG decode (8-bit RGBA or RGB, non-interlaced) ----------
 
-// Signed distance to a rounded rectangle centred at (cx, cy) with half-size (hw, hh) and radius r.
-function sdRoundRect(x, y, cx, cy, hw, hh, r) {
-  const qx = Math.abs(x - cx) - hw + r;
-  const qy = Math.abs(y - cy) - hh + r;
-  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
-}
-
-// Icon in a 0..1 coordinate space: blue squircle, three white "text" lines of a transcript, red live dot.
-function sample(x, y) {
-  if (sdRoundRect(x, y, 0.5, 0.5, 0.5, 0.5, 0.23) > 0) return null;
-  if (Math.hypot(x - 0.76, y - 0.27) < 0.095) return DOT;
-  const lines = [
-    [0.22, 0.27, 0.56],
-    [0.22, 0.5, 0.78],
-    [0.22, 0.73, 0.64],
-  ];
-  for (const [x0, cy, x1] of lines) {
-    if (sdRoundRect(x, y, (x0 + x1) / 2, cy, (x1 - x0) / 2, 0.055, 0.055) <= 0) return FG;
+function decodePng(buf) {
+  let width, height, depth, colorType, interlace;
+  const idat = [];
+  for (let o = 8; o < buf.length; ) {
+    const len = buf.readUInt32BE(o);
+    const type = buf.toString('ascii', o + 4, o + 8);
+    const data = buf.subarray(o + 8, o + 8 + len);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      [depth, colorType] = [data[8], data[9]];
+      interlace = data[12];
+    } else if (type === 'IDAT') idat.push(data);
+    else if (type === 'IEND') break;
+    o += 12 + len;
   }
-  return BG;
-}
-
-function render(size) {
-  const px = Buffer.alloc(size * size * 4);
-  const n = size * SS;
-  for (let py = 0; py < size; py++) {
-    for (let pxl = 0; pxl < size; pxl++) {
-      let r = 0, g = 0, b = 0, a = 0;
-      for (let sy = 0; sy < SS; sy++) {
-        for (let sx = 0; sx < SS; sx++) {
-          const c = sample((pxl * SS + sx + 0.5) / n, (py * SS + sy + 0.5) / n);
-          if (c) { r += c[0]; g += c[1]; b += c[2]; a += 1; }
-        }
+  if (depth !== 8 || (colorType !== 6 && colorType !== 2) || interlace) {
+    throw new Error(`unsupported PNG: depth ${depth}, color type ${colorType}, interlace ${interlace}`);
+  }
+  const bpp = colorType === 6 ? 4 : 3;
+  const stride = width * bpp;
+  const raw = inflateSync(Buffer.concat(idat));
+  const px = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? px[y * stride + x - bpp] : 0;
+      const b = y > 0 ? px[(y - 1) * stride + x] : 0;
+      const c = x >= bpp && y > 0 ? px[(y - 1) * stride + x - bpp] : 0;
+      let pred = 0;
+      if (filter === 1) pred = a;
+      else if (filter === 2) pred = b;
+      else if (filter === 3) pred = (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        pred = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
       }
-      const i = (py * size + pxl) * 4;
-      if (a) { px[i] = r / a; px[i + 1] = g / a; px[i + 2] = b / a; }
-      px[i + 3] = Math.round((a / (SS * SS)) * 255);
+      px[y * stride + x] = (line[x] + pred) & 0xff;
     }
   }
-  return px;
+  if (bpp === 4) return { width, height, px };
+  const rgba = Buffer.alloc(width * height * 4, 255);
+  for (let i = 0; i < width * height; i++) px.copy(rgba, i * 4, i * 3, i * 3 + 3);
+  return { width, height, px: rgba };
 }
+
+// ---------- crop + area resample ----------
+
+function contentBox({ width, height, px }) {
+  let x0 = width, y0 = height, x1 = -1, y1 = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (px[(y * width + x) * 4 + 3] > ALPHA_CUTOFF) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) throw new Error('the source icon is fully transparent');
+  return { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+// Weights of source pixels covering each destination pixel along one axis (exact fractional coverage).
+function axisWeights(srcStart, srcLen, dstLen) {
+  const scale = srcLen / dstLen;
+  return Array.from({ length: dstLen }, (_, d) => {
+    const a = srcStart + d * scale;
+    const b = a + scale;
+    const taps = [];
+    for (let s = Math.floor(a); s < Math.ceil(b); s++) {
+      const w = Math.min(b, s + 1) - Math.max(a, s);
+      if (w > 0) taps.push([s, w / scale]);
+    }
+    return taps;
+  });
+}
+
+// Draws the source box scaled to `dw`×`dh` at (dx, dy) of a transparent `size`×`size` canvas.
+function render(src, box, size) {
+  const pad = PADDING[size];
+  const fit = Math.min((size - 2 * pad) / box.w, (size - 2 * pad) / box.h);
+  const dw = Math.max(1, Math.round(box.w * fit));
+  const dh = Math.max(1, Math.round(box.h * fit));
+  const dx = Math.floor((size - dw) / 2);
+  const dy = Math.floor((size - dh) / 2);
+  const wx = axisWeights(box.x0, box.w, dw);
+  const wy = axisWeights(box.y0, box.h, dh);
+
+  // Horizontal pass into premultiplied floats (rows of the crop only), then vertical pass.
+  const tmp = new Float64Array(dw * box.h * 4);
+  for (let y = 0; y < box.h; y++) {
+    const row = (box.y0 + y) * src.width;
+    for (let x = 0; x < dw; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (const [s, w] of wx[x]) {
+        const i = (row + s) * 4;
+        const al = (src.px[i + 3] / 255) * w;
+        r += src.px[i] * al; g += src.px[i + 1] * al; b += src.px[i + 2] * al; a += al;
+      }
+      const t = (y * dw + x) * 4;
+      tmp[t] = r; tmp[t + 1] = g; tmp[t + 2] = b; tmp[t + 3] = a;
+    }
+  }
+  const out = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < dh; y++) {
+    for (let x = 0; x < dw; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (const [s, w] of wy[y]) {
+        const t = ((s - box.y0) * dw + x) * 4;
+        r += tmp[t] * w; g += tmp[t + 1] * w; b += tmp[t + 2] * w; a += tmp[t + 3] * w;
+      }
+      const o = ((dy + y) * size + dx + x) * 4;
+      if (a > 0) { out[o] = Math.round(r / a); out[o + 1] = Math.round(g / a); out[o + 2] = Math.round(b / a); }
+      out[o + 3] = Math.round(Math.min(1, a) * 255);
+    }
+  }
+  return out;
+}
+
+// ---------- PNG encode ----------
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -83,13 +167,16 @@ function png(size, rgba) {
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw)),
+    chunk('IDAT', deflateSync(raw, { level: 9 })),
     chunk('IEND', Buffer.alloc(0)),
   ]);
 }
 
+const src = decodePng(readFileSync(SOURCE));
+const box = contentBox(src);
+console.log(`source ${src.width}×${src.height}, artwork ${box.w}×${box.h} at ${box.x0},${box.y0}`);
 mkdirSync(OUT, { recursive: true });
-for (const size of SIZES) {
-  writeFileSync(`${OUT}icon-${size}.png`, png(size, render(size)));
+for (const size of Object.keys(PADDING).map(Number)) {
+  writeFileSync(`${OUT}icon-${size}.png`, png(size, render(src, box, size)));
   console.log(`icons/icon-${size}.png`);
 }

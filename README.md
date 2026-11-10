@@ -60,7 +60,7 @@ All documentation is in [docs/](docs/README.md): architecture, parameters, a run
 ```bash
 npm test          # unit tests (node:test, no dependencies)
 npm run dev       # dev server on http://localhost:8765
-npm run icons     # regenerate the icons
+npm run icons     # render extension/icons/* from design/icon-source.png
 npm run store     # build dist/meet-transcriber-<version>.zip for the Chrome Web Store
 npm run store:publish   # build, upload and submit it for review through the Chrome Web Store API
 ```
