@@ -96,6 +96,25 @@ There is no `tabs` permission, so the SW does not watch tab navigations. Instead
 
 When a meeting ends (`router.endMeeting`), a meeting without turns is deleted. Otherwise, if `autoDownload` is enabled, the `.md` is saved through `chrome.downloads` (data: URL, `conflictAction: 'uniquify'`).
 
+### Google Drive copy
+
+If `driveUpload` is enabled, `endMeeting` also uploads the `.md` to Google Drive (`router.syncDrive`). The pieces:
+
+- `background/drive-auth.js` — OAuth authorization code + PKCE through `chrome.identity.launchWebAuthFlow` with a
+  "Web application" client (`background/drive-config.js`). `getAuthToken` is not used: it is tied to the browser
+  profile's account and to Google Chrome. `connect()` runs on the archive page, from the click that also requests the
+  optional `identity` and Google API host permissions; the refresh token lands in `chrome.storage.local`
+  (`driveAuth`). The service worker only calls `getToken()`, which refreshes the access token with a plain `fetch`
+  and never opens a window.
+- `background/drive.js` — pure Drive v3 client (injected `fetch`, token source, storage): finds or creates the
+  `Meet Transcripts` folder, creates the file with a multipart upload, and later `PATCH`es the same file (content and
+  name) so a meeting never has two copies. A file or folder deleted in Drive is created again.
+- `router.js` keeps the state of the copy in the meeting record (`drive`). `pending` is written before the network
+  call; all uploads of one meeting run through one in-memory chain; `sweep()` retries `pending`/`error` copies of
+  ended meetings once their `nextAt` has passed (`DRIVE_RETRY_MIN`). `auth` (sign-in missing, revoked or expired)
+  is never retried on its own: `drive:resume`, sent by the archive after a successful sign-in, puts those meetings
+  back to `pending`. A rename re-uploads a meeting that has a file; a delete does not touch Drive.
+
 ## Message protocol (`background/router.js`)
 
 | Type | Sender | Data | Response |
@@ -108,6 +127,8 @@ When a meeting ends (`router.endMeeting`), a meeting without turns is deleted. O
 | `settings:get` / `settings:set` | sidebar, archive | `patch` | settings |
 | `meeting:get` / `meeting:rename` / `meeting:delete` | archive | `id`, `title` | |
 | `meeting:export` | sidebar, archive | `id`, `format: md\|txt\|json` | `{id, filename}` |
+| `meeting:upload` | archive | `id` | uploads the meeting to Google Drive now; returns its `drive` state |
+| `drive:resume` | archive, after Google sign-in | — | re-queues and uploads the meetings that waited for a sign-in |
 | `archive:open` | sidebar | `id` | opens `archive.html#<id>` in a new tab |
 | `dev:status` / `dev:ping` | `main.js` | — | only for the unpacked extension with the dev server |
 
@@ -117,17 +138,23 @@ The SW response always has the form `{ok, result}` or `{ok: false, error}`. `MT.
 
 ```jsonc
 {
-  "settings": { "autoCaptions": true, "autoUkrainian": true, "showOverlay": false, "autoDownload": true },
+  "settings": { "autoCaptions": true, "autoUkrainian": true, "showOverlay": false, "autoDownload": true,
+                "driveUpload": false },
   "meetings": [   // index, sorted by startedAt ↓
     { "id": "rfz-xkor-aeo_1790258140796", "code": "rfz-xkor-aeo", "title": "…", "startedAt": 0, "updatedAt": 0,
-      "endedAt": null, "speakers": ["…"], "entryCount": 8, "language": "Ukrainian (Ukraine)" }
+      "endedAt": null, "speakers": ["…"], "entryCount": 8, "language": "Ukrainian (Ukraine)",
+      "drive": "done" }   // status of the Google Drive copy, or null
   ],
   "meeting:rfz-xkor-aeo_1790258140796": {
     "id": "…", "code": "…", "url": "https://meet.google.com/…", "title": "…", "language": "…",
     "startedAt": 0, "updatedAt": 0, "endedAt": null, "speakers": ["…"],
     "entries": [ { "id": "e-1", "block": 1, "speaker": "Denys Danyliuk", "self": true,
-                   "text": "…", "startedAt": 0, "updatedAt": 0 } ]
+                   "text": "…", "startedAt": 0, "updatedAt": 0 } ],
+    // only once a Drive copy was attempted; status: pending | done | error | auth
+    "drive": { "status": "done", "fileId": "…", "attempts": 0, "nextAt": null, "error": null, "uploadedAt": 0 }
   },
+  "driveAuth": { "refreshToken": "…", "accessToken": "…", "expiresAt": 0, "email": "…" },  // Google sign-in
+  "driveFolder": "…",          // id of the "Meet Transcripts" folder in Drive
   "__devLoadedVersion": "…"    // dev only
 }
 ```

@@ -8,6 +8,7 @@ A local Chrome extension for Google Meet. It saves meeting captions (in Ukrainia
 - Turns captions on when you join a call and switches the recognition language to Ukrainian.
 - Stores everything locally in `chrome.storage.local`. Includes a searchable meeting archive and export to Markdown, TXT or JSON.
 - Saves a `.md` file to `Downloads/Meet Transcripts/` automatically when a meeting ends.
+- Optionally keeps a copy of every transcript in your own Google Drive (archive → settings → "Google Диск").
 
 The extension UI is in Ukrainian.
 
@@ -50,7 +51,7 @@ Settings (⚙ in the sidebar or in the archive):
 - `content/page-raf.js` runs in the MAIN world. Chrome pauses `requestAnimationFrame` in background tabs, and then Meet stops updating captions in the DOM. The script routes rAF to timers, so recording continues while you are in another tab.
 - `content/caption-tracker.js` watches the captions region with a `MutationObserver`. `shared/transcript.js` turns Meet's stream of edits into stable lines: appended words, tail corrections, pauses, truncated long blocks and region re-renders.
 - `content/page.css` collapses the captions overlay before Meet measures it, so Meet doesn't reserve space for it. Meet's picture-in-picture window is a separate document that `page.css` does not reach, so the content script adds the same rule there when it opens (see `docs/meet-dom.md`).
-- `background/` is the service worker, the only writer to storage. It also tracks meeting tabs and downloads.
+- `background/` is the service worker, the only writer to storage. It also tracks meeting tabs, downloads and the optional Google Drive copy.
 - All Meet DOM selectors live in `content/selectors.js`, with fallbacks. Notes from the live DOM recon are in [docs/meet-dom.md](docs/meet-dom.md).
 
 All documentation is in [docs/](docs/README.md): architecture, parameters, a runbook for Meet DOM changes, testing, design and the development log.
@@ -84,7 +85,7 @@ While `npm run dev` is running:
 
 ## Privacy
 
-Transcripts never leave your computer. See [docs/privacy.md](docs/privacy.md).
+Transcripts never leave your computer unless you connect your own Google Drive for the optional copy. See [docs/privacy.md](docs/privacy.md).
 
 ## License
 

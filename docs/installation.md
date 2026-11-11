@@ -69,6 +69,15 @@ renaming, export to Markdown / TXT / JSON, deletion.
 | Ставити українську мову (Set Ukrainian language) | on | Switches the recognition language to Ukrainian once per call. |
 | Зберігати файл після мітингу (Save a file after the meeting) | on | Downloads a `.md` automatically after you leave the call. |
 | Субтитри на екрані (Captions on screen) | off | Shows Meet's native captions overlay over the video. |
+| Зберігати копію на Google Диск (Keep a copy in Google Drive) | off | Archive settings only, after "Підключити" (Connect) under "Google Диск". Uploads the `.md` to a `Meet Transcripts` folder in the connected Google account right after the call. |
+
+### Google Drive copy
+
+Open the archive → ⚙ → "Google Диск" → "Підключити", allow the extension to use Google sign-in, and pick the Google
+account in Google's window. From then on every finished meeting is uploaded as a `.md` file; the chip in the meeting
+header shows the state of the copy, and "Зберегти на Диск" uploads a meeting recorded earlier. A failed upload (no
+network) is retried automatically. Renaming a meeting renames the file; deleting a meeting from the archive keeps
+the file in Drive. "Відключити" signs out and stops the uploads.
 
 ## Permissions the extension asks for
 
@@ -80,7 +89,11 @@ renaming, export to Markdown / TXT / JSON, deletion.
 | `scripting` + `https://meet.google.com/*` | After an extension update, injects the fresh script into Meet tabs that are already open so recording is not interrupted. |
 | `http://localhost:8765/*` | Unpacked install only (the store package does not ask for it): auto-reload during `npm run dev`. Outside development the extension makes one request to localhost when Meet opens and nothing after that. |
 
-No data is sent anywhere. There are no servers, no analytics and no external requests apart from the local dev server.
+| `identity`, `https://www.googleapis.com/*`, `https://oauth2.googleapis.com/*` (optional) | Asked only when you press "Підключити" for Google Drive: Google sign-in and the uploads to your Drive. |
+
+Unless you connect Google Drive, no data is sent anywhere. There are no servers, no analytics and no external requests
+apart from the local dev server. With Drive connected, transcripts go from your browser to your own Google Drive and
+nowhere else.
 
 ## Updating
 

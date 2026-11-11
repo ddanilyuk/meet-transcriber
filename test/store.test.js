@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore, DEFAULT_SETTINGS, RESUME_IDLE_MS } from '../extension/background/store.js';
-import { createRouter, memoryTabMap, STALE_MS } from '../extension/background/router.js';
+import { createRouter, memoryTabMap, STALE_MS, DRIVE_RETRY_MIN, DRIVE_IN_FLIGHT_MS } from '../extension/background/router.js';
 
 // chrome.storage.local-like in-memory storage.
 function memoryStorage() {
@@ -222,4 +222,219 @@ test('router: sweep ends meetings that no tab is recording any more', async () =
   assert.equal((await router.store.get(fresh.id)).endedAt, null, 'unlinked but updated recently');
   assert.equal(calls.downloads.length, 2);
   assert.deepEqual(await router.sweep({ tabExists: async () => true }), [], 'idempotent');
+});
+
+// ---------- Google Drive copy ----------
+
+// Router with a fake Drive: uploads are recorded, `fail` makes the next ones throw, `gate` holds them open.
+function driveSetup({ enabled = true } = {}) {
+  const clock = { t: Date.UTC(2026, 8, 24, 12, 0) };
+  const storage = memoryStorage();
+  const fake = { uploads: [], connected: true, fail: null, gate: null, nextId: 1 };
+  const drive = {
+    connected: async () => fake.connected,
+    upload: async (file) => {
+      fake.uploads.push(file);
+      if (fake.gate) await fake.gate;
+      if (fake.fail) throw fake.fail;
+      return { fileId: file.fileId || `file-${fake.nextId++}` };
+    },
+  };
+  const router = createRouter({ storage, drive, now: () => clock.t });
+  const record = async (code = 'abc-defg-hij', tabId = 7) => {
+    const { meeting } = await router.handle({ type: 'session:start', code, title: 'Синк' }, { tab: { id: tabId } });
+    await router.handle({ type: 'session:update', id: meeting.id, patch: { entries: [entry('e-1', 'Ви', 'Привіт')] } }, { tab: { id: tabId } });
+    return meeting;
+  };
+  const end = (id, tabId = 7) => router.handle({ type: 'session:end', id }, { tab: { id: tabId } });
+  const ready = enabled ? router.handle({ type: 'settings:set', patch: { driveUpload: true } }) : Promise.resolve();
+  return { clock, storage, fake, router, record, end, ready };
+}
+
+const authError = () => Object.assign(new Error('sign in again'), { kind: 'auth' });
+
+test('drive: nothing is uploaded unless the setting is on', async () => {
+  const { fake, router, record, end } = driveSetup({ enabled: false });
+  const meeting = await record();
+  await end(meeting.id);
+  assert.equal(fake.uploads.length, 0);
+  assert.equal((await router.store.get(meeting.id)).drive, undefined);
+  assert.equal((await router.store.list())[0].drive, null);
+});
+
+test('drive: an ended meeting is uploaded as Markdown and remembers its file', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  const meeting = await record();
+  await end(meeting.id);
+  assert.equal(fake.uploads.length, 1);
+  assert.equal(fake.uploads[0].fileId, null);
+  assert.match(fake.uploads[0].name, /^\d{4}-\d\d-\d\d \d\d-\d\d Синк\.md$/, 'no local folder prefix');
+  assert.ok(fake.uploads[0].text.includes('Привіт'));
+  const saved = await router.store.get(meeting.id);
+  assert.deepEqual(saved.drive, { fileId: 'file-1', attempts: 0, nextAt: null, error: null, uploadedAt: clock.t, status: 'done' });
+  assert.equal((await router.store.list())[0].drive, 'done');
+});
+
+test('drive: empty meetings are dropped, not uploaded', async () => {
+  const { fake, router, end, ready } = driveSetup();
+  await ready;
+  const { meeting } = await router.handle({ type: 'session:start', code: 'abc-defg-hij' }, { tab: { id: 7 } });
+  await end(meeting.id);
+  assert.equal(fake.uploads.length, 0);
+});
+
+test('drive: the pending state is stored before the network call', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  const meeting = await record();
+  let release;
+  fake.gate = new Promise((r) => { release = r; });
+  const ending = end(meeting.id);
+  while (!fake.uploads.length) await new Promise((r) => setImmediate(r));
+  const during = (await router.store.get(meeting.id)).drive;
+  assert.equal(during.status, 'pending');
+  assert.equal(during.nextAt, clock.t + DRIVE_IN_FLIGHT_MS);
+  release();
+  await ending;
+  assert.equal((await router.store.get(meeting.id)).drive.status, 'done');
+});
+
+test('drive: a failed upload is retried by the sweep only after its pause', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  const meeting = await record();
+  fake.fail = new Error('offline');
+  await end(meeting.id);
+  let state = (await router.store.get(meeting.id)).drive;
+  assert.equal(state.status, 'error');
+  assert.equal(state.attempts, 1);
+  assert.equal(state.error, 'offline');
+  assert.equal(state.nextAt, clock.t + DRIVE_RETRY_MIN[0] * 60_000);
+
+  fake.fail = null;
+  clock.t += 30_000;
+  await router.sweep();
+  assert.equal(fake.uploads.length, 1, 'too early');
+  clock.t += 31_000;
+  await router.sweep();
+  assert.equal(fake.uploads.length, 2);
+  state = (await router.store.get(meeting.id)).drive;
+  assert.equal(state.status, 'done');
+  assert.equal(state.attempts, 0);
+  await router.sweep();
+  assert.equal(fake.uploads.length, 2, 'done copies are left alone');
+});
+
+test('drive: automatic retries stop after the last pause', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  const meeting = await record();
+  fake.fail = new Error('offline');
+  await end(meeting.id);
+  for (let i = 0; i < DRIVE_RETRY_MIN.length + 3; i++) {
+    clock.t += 24 * 3600_000;
+    await router.sweep();
+  }
+  assert.equal(fake.uploads.length, DRIVE_RETRY_MIN.length + 1);
+  const state = (await router.store.get(meeting.id)).drive;
+  assert.equal(state.status, 'error');
+  assert.equal(state.nextAt, null);
+  fake.fail = null;
+  assert.equal((await router.handle({ type: 'meeting:upload', id: meeting.id })).status, 'done', 'the manual retry still works');
+});
+
+test('drive: triggers at the same time never create two files', async () => {
+  const { fake, router, record, end, ready } = driveSetup();
+  await ready;
+  const meeting = await record();
+  let release;
+  fake.gate = new Promise((r) => { release = r; });
+  const all = Promise.all([end(meeting.id), router.handle({ type: 'meeting:upload', id: meeting.id }), router.sweep()]);
+  while (!fake.uploads.length) await new Promise((r) => setImmediate(r));
+  release();
+  await all;
+  assert.deepEqual(fake.uploads.map((u) => u.fileId), [null, 'file-1'], 'the second upload updates the first file');
+  assert.equal((await router.store.get(meeting.id)).drive.fileId, 'file-1');
+});
+
+test('drive: ending a resumed meeting updates the same file', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  const meeting = await record();
+  await end(meeting.id);
+  clock.t += 60_000;
+  const again = await router.handle({ type: 'session:start', code: 'abc-defg-hij' }, { tab: { id: 7 } });
+  assert.equal(again.meeting.id, meeting.id);
+  await router.sweep();
+  assert.equal(fake.uploads.length, 1, 'a meeting in progress is not uploaded by the sweep');
+  await router.handle({ type: 'session:update', id: meeting.id, patch: { entries: [entry('e-1', 'Ви', 'Привіт'), entry('e-2', 'Ви', 'Ще')] } }, { tab: { id: 7 } });
+  await end(meeting.id);
+  assert.equal(fake.uploads.length, 2);
+  assert.equal(fake.uploads[1].fileId, 'file-1');
+  assert.ok(fake.uploads[1].text.includes('Ще'));
+});
+
+test('drive: without a sign-in the meeting waits, and drive:resume uploads it', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  fake.connected = false;
+  const meeting = await record();
+  await end(meeting.id);
+  assert.equal(fake.uploads.length, 0);
+  assert.equal((await router.store.get(meeting.id)).drive.status, 'auth');
+  clock.t += 3600_000;
+  await router.sweep();
+  assert.equal(fake.uploads.length, 0, 'never retried on its own');
+  fake.connected = true;
+  await router.handle({ type: 'drive:resume' });
+  assert.equal(fake.uploads.length, 1);
+  assert.equal((await router.store.get(meeting.id)).drive.status, 'done');
+});
+
+test('drive: an expired sign-in parks the upload until the user signs in again', async () => {
+  const { fake, router, record, end, ready, clock } = driveSetup();
+  await ready;
+  const meeting = await record();
+  fake.fail = authError();
+  await end(meeting.id);
+  const state = (await router.store.get(meeting.id)).drive;
+  assert.equal(state.status, 'auth');
+  assert.equal(state.nextAt, null);
+  clock.t += 3600_000;
+  await router.sweep();
+  assert.equal(fake.uploads.length, 1);
+});
+
+test('drive: a rename follows to Drive, a delete does not', async () => {
+  const { fake, router, record, end, ready } = driveSetup();
+  await ready;
+  const meeting = await record();
+  await end(meeting.id);
+  await router.handle({ type: 'meeting:rename', id: meeting.id, title: 'Планування' });
+  assert.equal(fake.uploads.length, 2);
+  assert.equal(fake.uploads[1].fileId, 'file-1');
+  assert.match(fake.uploads[1].name, / Планування\.md$/);
+  await router.handle({ type: 'meeting:delete', id: meeting.id });
+  assert.equal(fake.uploads.length, 2);
+});
+
+test('drive: renaming a meeting that was never uploaded does not upload it', async () => {
+  const { fake, router, record, end } = driveSetup({ enabled: false });
+  const meeting = await record();
+  await end(meeting.id);
+  await router.handle({ type: 'meeting:rename', id: meeting.id, title: 'Планування' });
+  assert.equal(fake.uploads.length, 0);
+});
+
+test('drive: manual upload works for old meetings and without the setting', async () => {
+  const { fake, router, record, end } = driveSetup({ enabled: false });
+  const meeting = await record();
+  await end(meeting.id);
+  const state = await router.handle({ type: 'meeting:upload', id: meeting.id });
+  assert.equal(state.status, 'done');
+  assert.equal(fake.uploads.length, 1);
+  await assert.rejects(router.handle({ type: 'meeting:upload', id: 'nope' }), /not found/);
+  const plain = createRouter({ storage: memoryStorage() });
+  await assert.rejects(plain.handle({ type: 'meeting:upload', id: meeting.id }), /not available/);
 });

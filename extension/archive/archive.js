@@ -1,6 +1,24 @@
 // Archive page: every recorded meeting, full-text search, rename, export and delete.
 // Reads chrome.storage.local directly; all writes go through the service worker (the single writer).
+import { createDriveAuth, DRIVE_ORIGINS } from '../background/drive-auth.js';
+import { DRIVE_CONFIG } from '../background/drive-config.js';
+
 const { util, format, icon, t } = globalThis.MT;
+
+// Google sign-in for the Drive copy runs here, on an extension page: chrome.identity only exists after the
+// optional permission was granted from a click. The dev archive page replaces both with fakes.
+const driveAuth =
+  globalThis.__mtDriveAuth ||
+  createDriveAuth({
+    storage: chrome.storage.local,
+    config: DRIVE_CONFIG,
+    identity: {
+      getRedirectURL: () => chrome.identity.getRedirectURL(),
+      launchWebAuthFlow: (options) => chrome.identity.launchWebAuthFlow(options),
+    },
+  });
+const requestDriveAccess =
+  globalThis.__mtRequestDriveAccess || (() => chrome.permissions.request({ permissions: ['identity'], origins: DRIVE_ORIGINS }));
 const { escapeHtml: esc, formatTime, formatDuration, avatarColor, initials, highlight, matches, groupTurns } = util;
 
 const MONTHS = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
@@ -12,6 +30,7 @@ const state = {
   query: '',
   hits: new Map(), // id -> number of matching entries
   settings: null,
+  drive: { connected: false, email: null }, // Google sign-in for the Drive copy
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -124,6 +143,7 @@ function renderList() {
         <span class="meeting-sub">
           ${live ? '<span class="meeting-live">Записується</span>' : ''}
           <span>${formatTime(m.startedAt)}–${formatTime(end)} · ${formatDuration(end - m.startedAt)} · ${m.entryCount} реплік</span>
+          ${m.drive === 'error' || m.drive === 'auth' ? `<span class="meeting-drive-failed" title="${t.driveError}">${icon('warning', 16)}</span>` : ''}
           ${hits ? `<span class="meeting-hits">${hits}</span>` : ''}
         </span>
         ${m.speakers?.length ? avatars(m.speakers) : ''}
@@ -143,6 +163,38 @@ function renderEmptyDetail() {
         ? 'Виберіть мітинг зліва, щоб переглянути транскрипт.'
         : 'Приєднайтеся до дзвінка в Google Meet — розширення само ввімкне субтитри й почне зберігати транскрипт.'}</p>
     </div>`;
+}
+
+// State of the meeting's copy in Google Drive; nothing until a copy was attempted.
+function driveChip(m) {
+  const status = m.drive?.status;
+  if (!status) return '';
+  const [name, label] = {
+    done: ['cloudDone', t.driveDone],
+    pending: ['cloudUpload', t.drivePending],
+    error: ['warning', t.driveError],
+    auth: ['warning', t.driveNeedsAuth],
+  }[status];
+  const failed = status === 'error' || status === 'auth';
+  return `<span class="chip${failed ? ' is-error' : ''}"${m.drive.error && failed ? ` title="${esc(m.drive.error)}"` : ''}>${icon(name, 18)}${label}</span>`;
+}
+
+// Manual upload: for meetings recorded before Drive was connected and for copies that failed.
+function driveButton(m) {
+  const status = m.drive?.status;
+  if (!driveAuth.configured() || !m.entries.length || status === 'done' || status === 'pending') return '';
+  if (!state.drive.connected && !status) return '';
+  return `<button class="btn" data-action="drive-upload">${icon('cloudUpload', 18)}${status ? t.driveRetry : t.driveSave}</button>`;
+}
+
+async function uploadToDrive() {
+  if (!state.drive.connected) return openSettings();
+  try {
+    const drive = await send('meeting:upload', { id: state.selectedId });
+    toast(drive?.status === 'done' ? t.driveSaved : t.driveSaveFailed);
+  } catch {
+    toast(t.driveSaveFailed);
+  }
 }
 
 async function renderDetail({ keepScroll = false } = {}) {
@@ -178,10 +230,12 @@ async function renderDetail({ keepScroll = false } = {}) {
         ${m.code ? `<span class="chip">${icon('openInNew', 18)}${esc(m.code)}</span>` : ''}
         ${m.language ? `<span class="chip">${icon('language', 18)}${esc(m.language)}</span>` : ''}
         <span class="chip">${icon('transcript', 18)}${m.entries.length} реплік · ${speakers.length} учасн.</span>
+        ${driveChip(m)}
       </div>
       <div class="actions">
         <button class="btn is-filled" data-action="copy">${icon('copy', 18)}Копіювати</button>
         <button class="btn" data-action="download-menu">${icon('download', 18)}Завантажити</button>
+        ${driveButton(m)}
         <button class="btn is-danger" data-action="delete">${icon('delete', 18)}Видалити</button>
       </div>
     </div>
@@ -300,18 +354,71 @@ async function openSettings() {
     ${row('autoUkrainian', t.settingAutoUkrainian, t.settingAutoUkrainianHint)}
     ${row('autoDownload', t.settingAutoDownload, t.settingAutoDownloadHint)}
     ${row('showOverlay', t.overlayToggle, 'Показувати рідні субтитри Meet поверх відео')}
+    <div id="drive-settings"></div>
     <div class="dialog-actions"><button class="btn" data-result="ok">Готово</button></div>`);
   const scrim = $('#scrim');
+
+  // Google Drive block: account row with connect/disconnect, and the auto-upload switch once connected.
+  const driveEl = scrim.querySelector('#drive-settings');
+  const renderDrive = (note = '') => {
+    if (!driveAuth.configured()) return;
+    const { connected, email } = state.drive;
+    const label = connected ? t.driveAccount(email) : email ? t.driveSignInAgain : t.driveNotConnected;
+    driveEl.innerHTML = `
+      <div class="setting-group">${t.driveTitle}</div>
+      <div class="setting is-static">
+        <span class="setting-text"><span>${esc(label)}</span><span class="setting-hint${note ? ' is-error' : ''}">${esc(note || t.driveHint)}</span></span>
+        <button class="btn" data-drive="${connected ? 'disconnect' : 'connect'}">${connected ? t.driveDisconnect : t.driveConnect}</button>
+      </div>
+      ${connected ? row('driveUpload', t.settingDriveUpload, t.settingDriveUploadHint) : ''}`;
+  };
+  const connectDrive = async (button) => {
+    button.disabled = true;
+    button.textContent = t.driveConnecting;
+    try {
+      // Must stay the first await: the permission prompt needs the click's user gesture.
+      if (!(await requestDriveAccess())) return renderDrive(t.driveDenied);
+      state.drive = await driveAuth.connect();
+      state.settings = await send('settings:set', { patch: { driveUpload: true } });
+      renderDrive();
+      toast(t.driveConnected);
+      await send('drive:resume');
+    } catch (err) {
+      console.error('[meet-transcriber] Google Drive sign-in failed', err);
+      renderDrive(t.driveConnectFailed(err?.message || err));
+    }
+  };
+  const disconnectDrive = async () => {
+    await driveAuth.disconnect();
+    state.drive = await driveAuth.status();
+    state.settings = await send('settings:set', { patch: { driveUpload: false } });
+    renderDrive();
+    toast(t.driveDisconnected);
+  };
+  state.drive = await driveAuth.status();
+  renderDrive();
+
   const toggle = async (el) => {
     const key = el.dataset.key;
+    if (!key) return;
     const value = !state.settings[key];
     state.settings = await send('settings:set', { patch: { [key]: value } });
     el.setAttribute('aria-checked', String(value));
     el.querySelector('.switch').setAttribute('aria-checked', String(value));
   };
-  scrim.addEventListener('click', (e) => { const s = e.target.closest('.setting'); if (s) toggle(s); });
-  scrim.addEventListener('keydown', (e) => { const s = e.target.closest('.setting'); if (s && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggle(s); } });
+  // The scrim element outlives the dialog: drop the listeners when it closes, or they pile up on every open.
+  const closed = new AbortController();
+  const signal = closed.signal;
+  scrim.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-drive]');
+    if (!b) return;
+    if (b.dataset.drive === 'connect') connectDrive(b);
+    else disconnectDrive();
+  }, { signal });
+  scrim.addEventListener('click', (e) => { const s = e.target.closest('.setting[data-key]'); if (s) toggle(s); }, { signal });
+  scrim.addEventListener('keydown', (e) => { const s = e.target.closest('.setting[data-key]'); if (s && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggle(s); } }, { signal });
   await scrimPromise;
+  closed.abort();
 }
 
 // ---------- wiring ----------
@@ -329,6 +436,7 @@ detailEl.addEventListener('click', (e) => {
   if (action === 'download-menu') openDownloadMenu(b);
   if (action === 'delete') confirmDelete();
   if (action === 'rename') startRename();
+  if (action === 'drive-upload') uploadToDrive();
 });
 
 document.addEventListener('click', (e) => {
@@ -360,6 +468,10 @@ addEventListener('hashchange', () => {
 // Live updates while a meeting is being recorded in another tab.
 chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
+  if (changes.driveAuth) {
+    state.drive = await driveAuth.status();
+    await renderDetail({ keepScroll: true });
+  }
   if (changes.meetings) {
     state.index = changes.meetings.newValue || [];
     if (state.query.trim()) await computeHits();
@@ -376,6 +488,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
 (async function init() {
   hydrateIcons();
+  state.drive = await driveAuth.status();
   await loadIndex();
   const fromHash = decodeURIComponent(location.hash.slice(1));
   const id = state.index.some((m) => m.id === fromHash) ? fromHash : state.index[0]?.id || null;

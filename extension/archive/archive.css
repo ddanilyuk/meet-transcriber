@@ -130,6 +130,12 @@ mark.mt-hl { background: var(--hl); color: inherit; border-radius: 2px; padding:
 .setting { display: flex; align-items: center; gap: 16px; padding: 12px 0; cursor: pointer; }
 .setting-text { flex: 1; display: flex; flex-direction: column; }
 .setting-hint { font-size: 12px; line-height: 16px; color: var(--on-variant); }
+.setting-hint.is-error { color: var(--error); }
+.setting.is-static { cursor: default; }
+.setting-group { margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--outline-variant); font: 500 14px/20px var(--font-display); color: var(--primary); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.chip.is-error { border-color: var(--error); color: var(--error); }
+.meeting-drive-failed { display: inline-flex; color: var(--error); }
 .switch { position: relative; width: 52px; height: 32px; flex: none; border: 2px solid var(--outline); border-radius: 16px; background: var(--container-high); transition: all 150ms; }
 .switch::before { content: ""; position: absolute; top: 50%; left: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--outline); transform: translateY(-50%); transition: all 150ms cubic-bezier(0.2, 0, 0, 1); }
 .switch[aria-checked="true"] { background: var(--primary); border-color: var(--primary); }

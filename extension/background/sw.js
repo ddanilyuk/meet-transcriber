@@ -1,6 +1,9 @@
 // Service worker: the single writer of extension storage and the owner of downloads.
 import { createRouter } from './router.js';
 import { devPing, devStatus } from './dev-reload.js';
+import { createDrive } from './drive.js';
+import { createDriveAuth } from './drive-auth.js';
+import { DRIVE_CONFIG } from './drive-config.js';
 
 const ARCHIVE_URL = chrome.runtime.getURL('archive/archive.html');
 const MEET_TABS = 'https://meet.google.com/*';
@@ -28,10 +31,15 @@ async function download({ filename, text, mime }) {
   return { id, filename };
 }
 
+// Google Drive copy. Signing in happens on the archive page; here the saved refresh token is enough.
+const driveAuth = createDriveAuth({ storage: chrome.storage.local, config: DRIVE_CONFIG });
+const driveClient = createDrive({ fetch: (...args) => fetch(...args), auth: driveAuth, storage: chrome.storage.local });
+
 const router = createRouter({
   storage: chrome.storage.local,
   tabMap,
   download,
+  drive: driveAuth.configured() ? { connected: driveAuth.connected, upload: driveClient.upload } : null,
   openArchive: (hash = '') => chrome.tabs.create({ url: ARCHIVE_URL + hash }),
   scheduleEnd: (tabId) => chrome.alarms.create(END_ALARM + tabId, { delayInMinutes: END_GRACE_MIN }),
   cancelEnd: (tabId) => chrome.alarms.clear(END_ALARM + tabId),

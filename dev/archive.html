@@ -34,10 +34,32 @@
 <script src="../extension/shared/format.js"></script>
 <script type="module">
   window.__downloads = [];
+  // Fake Google Drive: sign-in is a flag in the shim storage, uploads are recorded. Set window.__driveFail to
+  // an Error (add kind: 'auth' for an expired sign-in) to make uploads fail.
+  window.__uploads = [];
+  const driveState = async () => (await chrome.storage.local.get('driveAuth')).driveAuth || null;
+  window.__mtDriveAuth = {
+    configured: () => true,
+    status: async () => ({ connected: !!(await driveState())?.refreshToken, email: (await driveState())?.email || null }),
+    connect: async () => {
+      await chrome.storage.local.set({ driveAuth: { refreshToken: 'dev', email: 'dev@example.com' } });
+      return { connected: true, email: 'dev@example.com' };
+    },
+    disconnect: () => chrome.storage.local.remove('driveAuth'),
+  };
+  window.__mtRequestDriveAccess = async () => true;
   const { createRouter } = await import('../extension/background/router.js');
   const router = createRouter({
     storage: chrome.storage.local,
     download: async ({ filename, text }) => { window.__downloads.push({ filename, text }); return { filename }; },
+    drive: {
+      connected: async () => (await window.__mtDriveAuth.status()).connected,
+      upload: async (file) => {
+        if (window.__driveFail) throw window.__driveFail;
+        window.__uploads.push(file);
+        return { fileId: file.fileId || `dev-file-${window.__uploads.length}` };
+      },
+    },
   });
   window.__harnessBackground = (msg, sender) => router.handle(msg, sender);
   await import('../extension/archive/archive.js');

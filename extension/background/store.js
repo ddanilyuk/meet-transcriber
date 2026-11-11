@@ -1,15 +1,19 @@
 // Storage schema over a chrome.storage.local-like object (get/set/remove). Pure: no chrome.* references,
 // so it runs in the service worker, the dev harness and node tests alike.
 //
-//   settings       -> { autoCaptions, autoUkrainian, showOverlay, autoDownload }
-//   meetings       -> index: [{ id, code, title, startedAt, updatedAt, endedAt, speakers, entryCount, language }]
-//   meeting:<id>   -> full record incl. entries: [{ id, speaker, text, startedAt, updatedAt }]
+//   settings       -> { autoCaptions, autoUkrainian, showOverlay, autoDownload, driveUpload }
+//   meetings       -> index: [{ id, code, title, startedAt, updatedAt, endedAt, speakers, entryCount, language, drive }]
+//                     (drive: status of the Google Drive copy, or null)
+//   meeting:<id>   -> full record incl. entries: [{ id, speaker, text, startedAt, updatedAt }] and, once a Drive
+//                     copy was attempted, drive: { status: 'pending'|'done'|'error'|'auth', fileId, attempts,
+//                     nextAt, error, uploadedAt }
 
 export const DEFAULT_SETTINGS = Object.freeze({
   autoCaptions: true,
   autoUkrainian: true,
   showOverlay: false,
   autoDownload: true,
+  driveUpload: false,
 });
 
 // A reload or an accidental leave + rejoin continues the same meeting record.
@@ -30,6 +34,7 @@ function meta(m) {
     speakers: m.speakers || [],
     entryCount: (m.entries || []).length,
     language: m.language || null,
+    drive: m.drive?.status || null,
   };
 }
 
@@ -139,6 +144,17 @@ export function createStore(storage, { now = () => Date.now() } = {}) {
         const meeting = await read(id);
         if (!meeting) return null;
         meeting.title = String(title || '').trim() || meeting.code || meeting.title;
+        return write(meeting);
+      });
+    },
+
+    // Merges the state of the Google Drive copy into the record. Does not touch updatedAt: the transcript
+    // itself did not change.
+    setDrive(id, patch) {
+      return serial(async () => {
+        const meeting = await read(id);
+        if (!meeting) return null;
+        meeting.drive = { fileId: null, attempts: 0, nextAt: null, error: null, uploadedAt: null, ...(meeting.drive || {}), ...patch };
         return write(meeting);
       });
     },

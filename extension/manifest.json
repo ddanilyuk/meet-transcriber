@@ -26,6 +26,8 @@
   },
   "permissions": ["storage", "unlimitedStorage", "downloads", "alarms", "scripting"],
   "host_permissions": ["https://meet.google.com/*", "http://localhost:8765/*"],
+  "optional_permissions": ["identity"],
+  "optional_host_permissions": ["https://www.googleapis.com/*", "https://oauth2.googleapis.com/*"],
   "content_scripts": [
     {
       "matches": ["https://meet.google.com/*"],

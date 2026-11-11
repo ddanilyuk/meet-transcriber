@@ -106,12 +106,22 @@ Key pieces and the non-obvious reasons behind them:
   transform via `data-mt-stage` + CSS variables on `<html>`: Meet lays tiles out from its own model, so shrinking
   `<main>`'s insets (even with `!important` and a `resize` event) does not re-layout the tiles.
 - `background/router.js` — message protocol (`tab:hello|bye`, `session:start|update|end`, `settings:get|set`,
-  `meeting:get|export|rename|delete`, `archive:open`, `dev:status|ping`). Without the `tabs` permission the SW cannot see
+  `meeting:get|export|rename|delete|upload`, `drive:resume`, `archive:open`, `dev:status|ping`). Without the `tabs` permission the SW cannot see
   navigations, so `tab:bye` on `pagehide` schedules an `alarms`-based end that only `session:start` (rejoining) cancels;
   a `tab:hello` with another or no meeting code (e.g. the Meet home screen right after Leave) ends the tab's meeting at
   once. `router.sweep()` (1-minute alarm + browser startup) ends open meetings linked to a vanished tab or unlinked and
   quiet for `STALE_MS` — tab links live in `chrome.storage.session`, which an extension reload or browser restart clears.
   Ending a meeting auto-downloads Markdown (data: URL; SW has no `URL.createObjectURL`) and drops meetings with no entries.
+- Google Drive copy (optional, `driveUpload` setting, off by default) — `background/drive.js` (pure Drive v3 client)
+  and `background/drive-auth.js` (OAuth code + PKCE via `chrome.identity.launchWebAuthFlow`, "Web application" client
+  from `background/drive-config.js`; `getAuthToken` is tied to the profile's account and to Google Chrome, so it is
+  not used). Sign-in runs on the archive page from the click that requests the optional `identity` + Google API host
+  permissions; the SW only refreshes tokens with `fetch` and never opens a window. `router.endMeeting` uploads the
+  `.md` to a `Meet Transcripts` folder (scope `drive.file`: only files the extension created). The copy's state lives
+  in `meeting.drive`: `pending` is written before the network call, uploads of one meeting run through one chain, the
+  file id is reused (`PATCH`) so a resumed or renamed meeting never gets a second file, `sweep()` retries failures
+  (`DRIVE_RETRY_MIN`), and `auth` waits for `drive:resume` after a new sign-in. Deleting a meeting keeps the Drive
+  file. The OAuth client lives in the developer's personal Google Cloud project; users sign in with any account.
 - Extension reload/update orphans running content scripts (no `chrome.runtime`, nothing can be saved). `sw.js`
   reinjects the manifest's scripts into open Meet tabs on `onInstalled` (install/update; needs `scripting` + the
   meet.google.com host permission). Copies live in separate isolated worlds and meet only through the DOM: `main.js`
@@ -139,7 +149,8 @@ structure in `dev/meet-sim.js`, run `npm test` + the harness, re-test in a real 
 
 ## Testing notes
 
-- Unit tests cover the builder (`test/transcript.test.js`), storage/router (`test/store.test.js`) and export formats
+- Unit tests cover the builder (`test/transcript.test.js`), storage/router (`test/store.test.js`), the Drive client and
+  sign-in on a fake `fetch` (`test/drive.test.js`; the dev pages use a fake Drive that records `window.__uploads`) and export formats
   (`test/format.test.js`). The harness covers DOM parsing, captions control and the UI without installing anything.
 - Real E2E uses Claude in Chrome on the user's Chrome: `meet.google.com/new` joins an empty call immediately; speech
   comes from macOS `say -v Lesya "…"` (uk_UA voice) through the speakers. Screenshots and timers only work while the

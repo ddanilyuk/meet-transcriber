@@ -94,6 +94,11 @@
       storage: chrome.storage.local,
       download: async ({ filename, text }) => { window.__downloads.push({ filename, text }); return { filename }; },
       openArchive: async (hash) => { window.open(`archive.html${hash || ''}`, '_blank'); },
+      // Fake Google Drive, "connected" from dev/archive.html (same shim storage); uploads are recorded.
+      drive: {
+        connected: async () => !!(await chrome.storage.local.get('driveAuth')).driveAuth?.refreshToken,
+        upload: async (file) => { (window.__uploads ||= []).push(file); return { fileId: file.fileId || `dev-file-${window.__uploads.length}` }; },
+      },
       now: () => Date.now(),
     });
     window.__harnessBackground = (msg, sender) => router.handle(msg, sender);

@@ -11,7 +11,7 @@
   const CC_RETRY_MS = 8000; // the first attempt is immediate; later ones are spaced out
   const RECLAIMS_MAX = 1; // captions off/on round trips per meeting to make Meet re-measure the collapsed overlay
   const RECLAIM_CONFIRM_MS = 1000; // the reservation must still be there after this long (Meet's layout settles late)
-  const DEFAULT_SETTINGS = { autoCaptions: true, autoUkrainian: true, showOverlay: false, autoDownload: true };
+  const DEFAULT_SETTINGS = { autoCaptions: true, autoUkrainian: true, showOverlay: false, autoDownload: true, driveUpload: false };
 
   class MeetingSession {
     constructor() {

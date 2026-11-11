@@ -12,6 +12,7 @@ Stored in `chrome.storage.local` → `settings`. The defaults are defined twice 
 | `autoUkrainian` | `true` | Once per session, when the captions region appears, selects `uk-UA` in the "Meeting language" combobox. |
 | `showOverlay` | `false` | Shows Meet's native captions overlay. When the value is `false`, the overlay is collapsed (`html.mt-hide-captions`). |
 | `autoDownload` | `true` | After a meeting with utterances ends, saves a `.md` file to `Downloads/Meet Transcripts/`. |
+| `driveUpload` | `false` | After a meeting with utterances ends, uploads the `.md` to the `Meet Transcripts` folder in the user's Google Drive. Turned on by connecting Google Drive in the archive settings and off by disconnecting it; the switch is shown only while connected. |
 
 The "panel open" state is not persisted. The panel opens only from the button and is closed on every page load and every new call. The `meetTranscriber:panelOpen` key in Meet's `localStorage` is left over from versions before 1.0.0 and is no longer read.
 
@@ -88,6 +89,18 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | empty meetings | — | A meeting without utterances is deleted when it ends; no file is created for it. |
 | file name | `Meet Transcripts/YYYY-MM-DD HH-mm <title>.<ext>` | The title is truncated to 80 characters, the characters `<>:"/\|?*` and control characters are replaced. `conflictAction: uniquify`. |
 
+## Google Drive copy — `background/router.js`, `background/drive.js`, `background/drive-auth.js`
+
+| Parameter | Value | Meaning |
+| --- | --- | --- |
+| `DRIVE_RETRY_MIN` (`router.js`) | 1, 5, 15, 60, 240 min | Pause before `sweep()` retries a failed upload, by attempt number. After the last one the copy stays in the `error` state until "Повторити" in the archive. |
+| `DRIVE_IN_FLIGHT_MS` (`router.js`) | 2 min | An upload marked `pending` that never reported back (the service worker was killed mid-request) is retried by `sweep()` after this. Lower values risk a duplicate file when a slow upload is still running. |
+| `DRIVE_FOLDER` (`drive.js`) | `Meet Transcripts` | Name of the folder the extension creates in Drive. Its id is kept in `driveFolder`; a renamed or moved folder keeps working, a deleted or trashed one is replaced. |
+| `DRIVE_MIME` (`drive.js`) | `text/markdown` | Files stay plain `.md` (no conversion to Google Docs), so Drive search and LLM connectors read them as text. |
+| `DRIVE_SCOPE` (`drive-auth.js`) | `drive.file` | The extension sees only the folder and files it created. |
+| `EXPIRY_MARGIN_MS` (`drive-auth.js`) | 60 s | The access token is refreshed this long before it expires. |
+| file name | `YYYY-MM-DD HH-mm <title>.md` | Same rule as the downloaded file, without the local folder prefix. |
+
 ## Dev tools
 
 | Parameter | Where | Value |
@@ -109,5 +122,7 @@ The "panel open" state is not persisted. The panel opens only from the button an
 | `scripting` | After the extension is installed, reloaded or updated, injects the content scripts into already open Meet tabs so the call keeps being recorded. |
 | `host_permissions: https://meet.google.com/*` | For `scripting` and for `tabs.query({ url })` over Meet tabs. No new warnings: the content scripts already have access to this site. |
 | `host_permissions: http://localhost:8765/*` | Only for dev-reload. |
+| `optional_permissions: identity` | Google sign-in (`launchWebAuthFlow`) for the Drive copy. Requested from the "Підключити" button in the archive settings; has no install-time warning. |
+| `optional_host_permissions: https://www.googleapis.com/*`, `https://oauth2.googleapis.com/*` | Drive uploads and token refresh from the service worker. Requested together with `identity`, so users who never connect Drive are not asked for anything. |
 
 There is deliberately no `tabs` permission: the SW sees the URLs of Meet tabs only, not of all tabs. Hence the `tab:hello` / `tab:bye` mechanism.

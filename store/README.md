@@ -91,9 +91,10 @@ Meet Transcriber зберігає субтитри Google Meet українсь�
 • Працює й тоді, коли вкладка Meet у фоні.
 • Після виходу з дзвінка автоматично зберігає транскрипт у файл .md у папці «Завантаження/Meet Transcripts».
 • Архів мітингів із групуванням за днями, повнотекстовим пошуком, перейменуванням і експортом у Markdown, TXT чи JSON.
+• За бажанням зберігає копію кожного транскрипту на ваш Google Диск, у папку «Meet Transcripts»: підключіть Диск у налаштуваннях архіву.
 
 Приватність:
-Усе зберігається лише на вашому компʼютері. Розширення не має серверів, аналітики й не надсилає жодних даних. Воно працює тільки на meet.google.com.
+Усе зберігається лише на вашому компʼютері. Розширення не має серверів та аналітики й працює тільки на meet.google.com. Дані залишають компʼютер лише тоді, коли ви самі підключили Google Диск: транскрипт надсилається напряму з браузера на ваш власний Диск. Розширення бачить на Диску тільки файли, які створило саме.
 
 Як користуватися:
 Зайдіть у дзвінок Google Meet і натисніть кнопку «Транскрипт» праворуч унизу. Запис іде й тоді, коли панель закрита. Архів відкривається іконкою розширення.
@@ -104,7 +105,7 @@ Meet Transcriber зберігає субтитри Google Meet українсь�
 Код і документація: https://github.com/ddanilyuk/meet-transcriber
 
 —
-Saves Google Meet's Ukrainian live captions with speaker names into a local, searchable transcript. Everything stays on your computer. The extension UI is in Ukrainian.
+Saves Google Meet's Ukrainian live captions with speaker names into a local, searchable transcript. Everything stays on your computer, with an optional copy to your own Google Drive. The extension UI is in Ukrainian.
 ```
 
 | Field | Value |
@@ -121,7 +122,7 @@ Saves Google Meet's Ukrainian live captions with speaker names into a local, sea
 **Single purpose description:**
 
 ```text
-Saves the live captions of the Google Meet call the user is in, together with speaker names, as a local transcript that the user can read in a sidebar, search and export.
+Saves the live captions of the Google Meet call the user is in, together with speaker names, as a local transcript that the user can read in a sidebar, search, export and optionally copy to their own Google Drive.
 ```
 
 **Permission justifications:**
@@ -134,17 +135,20 @@ Saves the live captions of the Google Meet call the user is in, together with sp
 | `alarms` | Ends and saves a meeting shortly after its Meet tab is closed, and runs a check every minute that saves meetings whose tab disappeared (for example after a browser restart), so no transcript is left unsaved. |
 | `scripting` | After the extension is updated, re-injects its content scripts into Google Meet tabs that are already open, so a call in progress keeps being transcribed without reloading the page. Only used on meet.google.com. |
 | Host permission `https://meet.google.com/*` | The extension reads the caption text and speaker names that Google Meet renders on the page, and shows its transcript panel inside the Meet page. It runs on no other site. |
+| `identity` (optional) | Requested only when the user clicks "Підключити" (Connect) under "Google Диск" in the archive settings. Used for `chrome.identity.launchWebAuthFlow` so the user can sign in to Google and let the extension save transcripts to their own Google Drive (scope `drive.file`: only files the extension creates). |
+| Optional host permissions `https://www.googleapis.com/*`, `https://oauth2.googleapis.com/*` | Requested together with `identity`. The service worker uploads the transcript file to the user's Google Drive and refreshes the Google access token. No other requests are made to these hosts. |
 
 **Remote code:** No, I am not using remote code.
 
-**Data usage**, what the extension handles (it is stored locally only, but the store requires disclosing it):
+**Data usage**, what the extension handles (it is stored locally, and sent only to the user's own Google Drive when
+they connect it, but the store requires disclosing it):
 
 | Checkbox | Check? | Why |
 | --- | --- | --- |
 | Personally identifiable information | yes | Names of meeting participants as shown by Meet. |
 | Health information | no | |
 | Financial and payment information | no | |
-| Authentication information | no | |
+| Authentication information | yes | Only with Google Drive connected: the Google OAuth tokens for that connection, kept in chrome.storage.local. |
 | Personal communications | yes | What participants say in the call, taken from the captions. |
 | Location | no | |
 | Web history | no | |
@@ -167,7 +171,7 @@ the single purpose, no use for creditworthiness or lending) are all true for thi
 ## Test instructions tab (for the reviewer)
 
 ```text
-No account in the extension and no login. To test: open https://meet.google.com/new with any Google account. The extension turns on Meet captions and switches the caption language to Ukrainian (Ukraine). Click the "Транскрипт" button at the bottom right to open the panel. Speak Ukrainian (or play Ukrainian speech) and lines appear in the panel with the speaker name. Click "Leave call": a Markdown file is saved to Downloads/Meet Transcripts/. Click the extension icon to open the archive. All data is stored locally in chrome.storage.local; nothing is sent over the network.
+No account in the extension and no login. To test: open https://meet.google.com/new with any Google account. The extension turns on Meet captions and switches the caption language to Ukrainian (Ukraine). Click the "Транскрипт" button at the bottom right to open the panel. Speak Ukrainian (or play Ukrainian speech) and lines appear in the panel with the speaker name. Click "Leave call": a Markdown file is saved to Downloads/Meet Transcripts/. Click the extension icon to open the archive. All data is stored locally in chrome.storage.local; nothing is sent over the network by default. Optional: in the archive click the gear icon, then "Підключити" under "Google Диск", allow the permission and sign in with any Google account; the next finished meeting is also uploaded as a .md file to a "Meet Transcripts" folder in that account's Google Drive (scope drive.file).
 ```
 
 ## Account page
