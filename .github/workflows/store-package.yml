@@ -1,0 +1,26 @@
+# Builds the Chrome Web Store package with the Drive client secret from the DRIVE_CLIENT_SECRET repository secret
+# and keeps it as a workflow artifact. Runs for version tags and on demand; it does not upload to the store.
+name: Store package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm test
+      - run: npm run store
+        env:
+          DRIVE_CLIENT_SECRET: ${{ secrets.DRIVE_CLIENT_SECRET }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meet-transcriber-store-package
+          path: dist/meet-transcriber-*.zip
+          if-no-files-found: error

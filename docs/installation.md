@@ -79,6 +79,10 @@ header shows the state of the copy, and "Зберегти на Диск" uploads
 network) is retried automatically. Renaming a meeting renames the file; deleting a meeting from the archive keeps
 the file in Drive. "Відключити" signs out and stops the uploads.
 
+The Google Drive block exists only in the store version. An unpacked copy from a release archive or a clone has no
+OAuth client secret (it is not kept in the repository), so the block is hidden there; developers with the secret
+enable it with `npm run config` (see [store/README.md](../store/README.md)).
+
 ## Permissions the extension asks for
 
 | Permission | Why |

@@ -101,7 +101,8 @@ When a meeting ends (`router.endMeeting`), a meeting without turns is deleted. O
 If `driveUpload` is enabled, `endMeeting` also uploads the `.md` to Google Drive (`router.syncDrive`). The pieces:
 
 - `background/drive-auth.js` — OAuth authorization code + PKCE through `chrome.identity.launchWebAuthFlow` with a
-  "Web application" client (`background/drive-config.js`). `getAuthToken` is not used: it is tied to the browser
+  "Web application" client (`background/drive-config.js`: an empty placeholder in git, filled in by `npm run config`
+  and by the store build from the Keychain or `DRIVE_CLIENT_SECRET`). `getAuthToken` is not used: it is tied to the browser
   profile's account and to Google Chrome. `connect()` runs on the archive page, from the click that also requests the
   optional `identity` and Google API host permissions; the refresh token lands in `chrome.storage.local`
   (`driveAuth`). The service worker only calls `getToken()`, which refreshes the access token with a plain `fetch`

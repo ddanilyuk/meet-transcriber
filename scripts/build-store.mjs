@@ -1,11 +1,14 @@
 // Builds the Chrome Web Store package: dist/meet-transcriber-<version>.zip with the contents of extension/.
 // The only difference from the unpacked extension is the manifest: the dev server host permission
 // (http://localhost:*) is dropped, because a store install never talks to it. background/dev-reload.js stays,
-// since it is a no-op unless chrome.management reports installType === 'development'.
+// since it is a no-op unless chrome.management reports installType === 'development'. background/drive-config.js is
+// written from the Drive client secret (DRIVE_CLIENT_SECRET or the Keychain, see scripts/drive-config.mjs); the build
+// fails without it, so a store package never ships with the Drive copy hidden.
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeDriveConfig } from './drive-config.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const SRC = join(ROOT, 'extension');
@@ -24,6 +27,7 @@ await rm(STAGE, { recursive: true, force: true });
 await mkdir(STAGE, { recursive: true });
 await cp(SRC, STAGE, { recursive: true, filter: (src) => !src.endsWith('.DS_Store') });
 await writeFile(join(STAGE, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+await writeDriveConfig(join(STAGE, 'background', 'drive-config.js'), { require: true });
 
 const zip = join(DIST, `meet-transcriber-${manifest.version}.zip`);
 await rm(zip, { force: true });

@@ -12,7 +12,18 @@ npm run store
 ```
 
 It writes `dist/meet-transcriber-<version>.zip`: the `extension/` folder with the dev-only
-`http://localhost:8765/*` host permission removed. Bump the version in `extension/manifest.json` and `package.json`
+`http://localhost:8765/*` host permission removed and `background/drive-config.js` filled with the Google OAuth client
+of the Drive copy. The client secret comes from `DRIVE_CLIENT_SECRET` or the Keychain item `meet-transcriber-drive` /
+`client-secret`; the build fails without it. To set it up on a new Mac (the secret is also the `DRIVE_CLIENT_SECRET`
+GitHub Actions secret, which cannot be read back; a copy lives in the Google Cloud project `meet-transcriber-514415`
+of danis.danilyuk@gmail.com, APIs & Services → Credentials, or create a new secret there):
+
+```bash
+security add-generic-password -U -s meet-transcriber-drive -a client-secret -w
+```
+
+The **Store package** GitHub Actions workflow builds the same zip from the repository secret on every `v*` tag (or
+by hand from the Actions tab) and keeps it as a workflow artifact. Bump the version in `extension/manifest.json` and `package.json`
 before every new upload; the store rejects a version it has already seen.
 
 Dashboard: <https://chrome.google.com/webstore/devconsole>. Chrome does not let extensions or embedded browsers

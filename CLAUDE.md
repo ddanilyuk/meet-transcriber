@@ -16,12 +16,21 @@ npm test                                                    # all unit tests (no
 node --test test/transcript.test.js                         # one file
 node --test --test-name-pattern="head truncation" test/transcript.test.js   # one test by name
 npm run dev                                                 # dev server on http://localhost:8765 (see below)
+npm run config                                              # fill drive-config.js with the Drive OAuth client (Keychain)
 npm run icons                                               # render extension/icons/*.png from design/icon-source.png
 npm run store                                               # dist/meet-transcriber-<version>.zip for the Web Store
 npm run store:status                                        # published / submitted versions (Web Store API V2)
 npm run store:publish                                       # build, upload and submit for review (asks first)
 npm run store:auth                                          # one-time OAuth sign-in, credentials in the Keychain
 ```
+
+`extension/background/drive-config.js` is committed as an empty placeholder (Drive copy hidden): GitHub push
+protection refuses the Google OAuth client secret. `npm run config` (also run by `npm run dev`) fills it in from
+`DRIVE_CLIENT_SECRET` or the Keychain item `meet-transcriber-drive` / `client-secret` and marks the file
+skip-worktree; `npm run store` writes the secret into its own copy and fails without it. Never commit the filled file.
+The same secret is the `DRIVE_CLIENT_SECRET` repository secret, used by `.github/workflows/store-package.yml` (builds
+the store zip as a workflow artifact on `v*` tags or on demand). GitHub secrets cannot be read back, so the Keychain is
+the source for local builds.
 
 `store:publish` submits the extension for review in the public store: run it only when the user asks for a store
 release. One-time setup and the manual fallback are in `store/README.md`.
