@@ -1,6 +1,6 @@
 {
   "name": "meet-transcriber",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "license": "MIT",
   "description": "Local Chrome extension that saves Google Meet captions (Ukrainian) with speakers",
