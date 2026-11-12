@@ -30,7 +30,7 @@ protection refuses the Google OAuth client secret. `npm run config` (also run by
 skip-worktree; `npm run store` writes the secret into its own copy and fails without it. Never commit the filled file.
 The same secret is the `DRIVE_CLIENT_SECRET` repository secret, used by `.github/workflows/store-package.yml` (builds
 the store zip as a workflow artifact on `v*` tags or on demand). GitHub secrets cannot be read back, so the Keychain is
-the source for local builds.
+the source for local builds. Where every secret lives and how to set up a new Mac: `store/README.md` → "Secrets".
 
 `store:publish` submits the extension for review in the public store: run it only when the user asks for a store
 release. One-time setup and the manual fallback are in `store/README.md`.

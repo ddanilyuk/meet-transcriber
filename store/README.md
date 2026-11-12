@@ -13,18 +13,76 @@ npm run store
 
 It writes `dist/meet-transcriber-<version>.zip`: the `extension/` folder with the dev-only
 `http://localhost:8765/*` host permission removed and `background/drive-config.js` filled with the Google OAuth client
-of the Drive copy. The client secret comes from `DRIVE_CLIENT_SECRET` or the Keychain item `meet-transcriber-drive` /
-`client-secret`; the build fails without it. To set it up on a new Mac (the secret is also the `DRIVE_CLIENT_SECRET`
-GitHub Actions secret, which cannot be read back; a copy lives in the Google Cloud project `meet-transcriber-514415`
-of danis.danilyuk@gmail.com, APIs & Services → Credentials, or create a new secret there):
+of the Drive copy. The build needs the Drive client secret and fails without it (see [Secrets](#secrets)). Bump the
+version in `extension/manifest.json` and `package.json` before every new upload; the store rejects a version it has
+already seen.
+
+The **Store package** GitHub Actions workflow (`.github/workflows/store-package.yml`) builds the same zip from the
+repository secret on every `v*` tag (or by hand from the Actions tab once the workflow is on `main`) and keeps it as a
+workflow artifact.
+
+## Secrets
+
+No secret is committed. GitHub push protection refuses the Google OAuth client secret, and
+`extension/background/drive-config.js` is an empty placeholder in git (the Drive copy is hidden in a build without it).
+
+| Secret | Needed for | Where it lives | Original |
+| --- | --- | --- | --- |
+| Drive OAuth client secret | `npm run store`, `npm run config` / `npm run dev` with the Drive copy | macOS login Keychain, service `meet-transcriber-drive`, account `client-secret`; GitHub Actions secret `DRIVE_CLIENT_SECRET` (write-only, cannot be read back) | Google Cloud project `meet-transcriber-514415` (the developer's personal Google account) → **APIs & Services → Credentials** → client "Meet Transcriber extension" |
+| Drive OAuth client ID | the same | not a secret: `DRIVE_CLIENT_ID` in `scripts/drive-config.mjs` | the same client |
+| Chrome Web Store API credentials | `npm run store:publish`, `npm run store:status` | macOS login Keychain, service `meet-transcriber-cws`, accounts `client-id`, `client-secret`, `refresh-token`, `publisher-id` (written by `npm run store:auth`) | see [One-time setup](#one-time-setup) |
+
+Environment variables override the Keychain: `DRIVE_CLIENT_SECRET` and `CWS_*`.
+
+Check what this Mac has (prints the Drive secret; `-w` can be dropped to print only the item's attributes):
+
+```bash
+security find-generic-password -s meet-transcriber-drive -a client-secret -w
+```
+
+The items can also be found in **Keychain Access** (search `meet-transcriber`). The login Keychain is not synced to
+iCloud: keep a copy in the **Passwords** app if you want one on other Macs.
+
+### Local build on a new Mac
+
+1. Get the Drive client secret: from the Keychain or Passwords app of another Mac, or from the Google Cloud console
+   (the console may show only the last characters of an existing secret; then **Add secret** on the same client,
+   use the new one and update the GitHub secret too, see below).
+2. Save it to the Keychain (the command asks for the value):
+
+   ```bash
+   security add-generic-password -U -s meet-transcriber-drive -a client-secret -w
+   ```
+
+3. Build the store package. It fails with "No Drive client secret" if step 2 is missing:
+
+   ```bash
+   npm run store
+   ```
+
+4. For the unpacked extension with the Drive copy, fill in the local `drive-config.js` (also done by `npm run dev`).
+   The script marks the file skip-worktree, so git does not show or commit the filled values:
+
+   ```bash
+   npm run config
+   ```
+
+5. For `npm run store:publish`, run the [one-time setup](#one-time-setup) on that Mac too.
+
+### Rotating the Drive secret
+
+Add a new secret on the client in the Google Cloud console, then update both copies and rebuild:
 
 ```bash
 security add-generic-password -U -s meet-transcriber-drive -a client-secret -w
 ```
 
-The **Store package** GitHub Actions workflow builds the same zip from the repository secret on every `v*` tag (or
-by hand from the Actions tab) and keeps it as a workflow artifact. Bump the version in `extension/manifest.json` and `package.json`
-before every new upload; the store rejects a version it has already seen.
+```bash
+gh secret set DRIVE_CLIENT_SECRET --repo ddanilyuk/meet-transcriber
+```
+
+Disable the old secret in the console only after a store version with the new one is live: installed copies use the
+secret baked into their package.
 
 Dashboard: <https://chrome.google.com/webstore/devconsole>. Chrome does not let extensions or embedded browsers
 script the Chrome Web Store, so listing texts, images and privacy answers have to be filled in by hand. The package
